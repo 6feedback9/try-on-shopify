@@ -1,0 +1,15 @@
+node_modules
+
+/build
+.cache
+.env
+dev.sqlite
+dev.sqlite-journal
+prisma/dev.sqlite
+prisma/dev.sqlite-journal
+
+.DS_Store
+.shopify
+
+# Local Shopify CLI state
+.shopify-cli.yml

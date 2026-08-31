@@ -1,0 +1,46 @@
+{% comment %}
+  AI Glasses Try-On — product page block.
+  Add via theme editor: Product template → Add block → "AI Glasses Try-On".
+
+  All storefront calls go to /apps/tryon/* (this app's App Proxy) — never
+  directly to LumiOn — so no LumiOn credentials ever reach the browser.
+{% endcomment %}
+
+<div
+  class="agto-root"
+  data-agto-root
+  data-product-id="{{ product.id }}"
+  data-product-title="{{ product.title | escape }}"
+  data-product-url="{{ product.url }}"
+  data-product-image="{{ product.featured_image | image_url: width: 1200 }}"
+  data-color="{{ block.settings.accent_color }}"
+  data-label="{{ block.settings.button_label | escape }}"
+  {{ block.shopify_attributes }}
+>
+  <button type="button" class="agto-trigger" data-agto-open style="border-color:{{ block.settings.accent_color }};color:{{ block.settings.accent_color }}">
+    <span aria-hidden="true">👓</span> {{ block.settings.button_label }}
+  </button>
+</div>
+
+{% schema %}
+{
+  "name": "AI Glasses Try-On",
+  "target": "section",
+  "stylesheet": "tryon-widget.css",
+  "javascript": "tryon-widget.js",
+  "settings": [
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Try On With AI"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent color",
+      "default": "#111111"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,52 @@
+# Learn more: https://shopify.dev/docs/apps/tools/cli/configuration
+#
+# `client_id` / `application_url` are filled in automatically the first time
+# you run `npm run config:link` and connect this codebase to an app you
+# create in the Partner Dashboard. Do not hand-edit them beforehand.
+
+client_id = ""
+name = "AI Glasses Try-On"
+handle = "ai-glasses-try-on"
+application_url = "https://your-app-url.example.com"
+embedded = true
+
+[access_scopes]
+scopes = "read_products"
+
+[auth]
+redirect_urls = [
+  "https://your-app-url.example.com/auth/callback",
+  "https://your-app-url.example.com/auth/shopify/callback",
+  "https://your-app-url.example.com/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2025-01"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/scopes_update"]
+  uri = "/webhooks/app/scopes_update"
+
+  # Mandatory GDPR compliance webhooks — required for every public app.
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "/webhooks/compliance"
+
+[app_proxy]
+# Storefront calls to https://{shop}/apps/tryon/* are forwarded here with a
+# verified signature. This is the ONLY path the theme extension calls — it
+# never talks to the LumiOn API directly, so no LumiOn credentials are ever
+# exposed to the browser.
+url = "https://your-app-url.example.com/apps/tryon"
+subpath = "tryon"
+prefix = "apps"
+
+[pos]
+embedded = false
+
+[build]
+include_config_on_deploy = true

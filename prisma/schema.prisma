@@ -1,0 +1,46 @@
+// This is this app's OWN database — completely separate from LumiOn's
+// Supabase/Postgres instance. It only stores Shopify OAuth sessions and,
+// per shop, which LumiOn brand it's connected to. No try-on photos or
+// results are ever stored here.
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+// One row per installed shop. Links the shop to a brand record that lives
+// in LumiOn's own database — LumiOn is never queried or modified except
+// through its public HTTP API, using the api key stored here.
+model ShopSettings {
+  id              String   @id @default(cuid())
+  shop            String   @unique
+  lumionBrandSlug String?
+  lumionApiKey    String?
+  widgetColor     String   @default("#111111")
+  buttonLabel     String   @default("Try On With AI")
+  enabled         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
