@@ -14,10 +14,10 @@ embedded = true
 scopes = "read_products"
 
 [auth]
+# Only one is actually used: authPathPrefix: "/auth" in shopify.server.js
+# means the OAuth callback route this app serves is exactly /auth/callback.
 redirect_urls = [
-  "https://try-on-shopify.onrender.com/auth/callback",
-  "https://try-on-shopify.onrender.com/auth/shopify/callback",
-  "https://try-on-shopify.onrender.com/api/auth/callback"
+  "https://try-on-shopify.onrender.com/auth/callback"
 ]
 
 [webhooks]
