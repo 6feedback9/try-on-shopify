@@ -13,7 +13,7 @@ import {
 } from "@shopify/polaris";
 import { authenticate, billing } from "../shopify.server";
 import prisma from "../db.server";
-import { ALL_PLANS, PLAN_DETAILS, TRIAL_DAYS } from "../billing.server";
+import { ALL_PLANS, PLAN_DETAILS } from "../billing";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -63,10 +63,10 @@ export default function Billing() {
     <Page title="Billing" backAction={{ url: "/app" }}>
       <Layout>
         <Layout.Section>
-          <Banner tone="info" title={`${TRIAL_DAYS}-day free trial on every plan`}>
+          <Banner tone="info" title="Billed immediately — no free trial">
             <p>
               Prices here are placeholders for launch — edit them in{" "}
-              <code>app/billing.server.js</code> before submitting to the App Store.
+              <code>app/billing.js</code> before submitting to the App Store.
             </p>
           </Banner>
         </Layout.Section>

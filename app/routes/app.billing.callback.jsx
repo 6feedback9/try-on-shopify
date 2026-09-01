@@ -1,7 +1,7 @@
 import { redirect } from "@remix-run/node";
 import { authenticate, billing } from "../shopify.server";
 import prisma from "../db.server";
-import { ALL_PLANS } from "../billing.server";
+import { ALL_PLANS } from "../billing";
 
 // Shopify sends the merchant back here after they approve (or decline) a
 // charge on the hosted confirmation page.
