@@ -50,7 +50,14 @@ export const action = async ({ request }) => {
     );
   }
 
-  if (wantsEnabled && !existing?.plan) {
+  // TEMP: Shopify's Billing API currently returns a bare 403 for this
+  // Public-distribution app before it's been submitted for review (a known
+  // platform limitation, not a bug in this code — see commit history).
+  // Skip the plan requirement while BILLING_REQUIRED isn't explicitly
+  // "true", so the core try-on flow can be tested now; re-enable before
+  // public launch.
+  const billingRequired = process.env.BILLING_REQUIRED === "true";
+  if (billingRequired && wantsEnabled && !existing?.plan) {
     return json(
       { ok: false, error: "Choose a plan on the Billing page before enabling the widget." },
       { status: 400 },
