@@ -20,6 +20,18 @@ export const loader = async ({ request }) => {
   // request — there is no standalone shopify.billing to import.
   const { session, billing } = await authenticate.admin(request);
 
+  // TEMP DIAGNOSTIC — remove once the billing 403 is root-caused.
+  try {
+    const rows = await prisma.session.findMany({ where: { shop: session.shop } });
+    console.log(
+      "[DIAG] sessions for",
+      session.shop,
+      JSON.stringify(rows.map((r) => ({ id: r.id, isOnline: r.isOnline, scope: r.scope, expires: r.expires }))),
+    );
+  } catch (e) {
+    console.log("[DIAG] session lookup failed", e.message);
+  }
+
   const billingCheck = await billing.check({ plans: ALL_PLANS, isTest: process.env.NODE_ENV !== "production" });
   const active = billingCheck.appSubscriptions?.[0]?.name || null;
 
