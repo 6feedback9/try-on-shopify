@@ -19,15 +19,26 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { registerLumiFrameStore, ensureAllowedDomain, getFreshToken, updateWidgetConfig } from "../lumiframe.server";
 
-async function getShopInfo(admin) {
-  const res = await admin.graphql(`#graphql
-    query { shop { name primaryDomain { host } } }
-  `);
-  const data = await res.json();
-  return {
-    name: data.data?.shop?.name || "My Store",
-    primaryDomain: data.data?.shop?.primaryDomain?.host || null,
-  };
+// Falls back to session.shop-derived values if the Admin GraphQL call
+// fails — currently a known platform issue for a pre-review Public app
+// (see the billing-403 notes in README.md), and there's no reason
+// "Connect to Lumi Frame" should be blocked by it: session.shop is
+// already a real, working domain for the store.
+async function getShopInfo(admin, session) {
+  try {
+    const res = await admin.graphql(`#graphql
+      query { shop { name primaryDomain { host } } }
+    `);
+    if (!res.ok) throw new Error(`Admin API returned ${res.status}`);
+    const data = await res.json();
+    return {
+      name: data.data?.shop?.name || session.shop,
+      primaryDomain: data.data?.shop?.primaryDomain?.host || session.shop,
+    };
+  } catch (err) {
+    console.warn("[settings] shop info lookup failed, falling back to session.shop:", err.message);
+    return { name: session.shop, primaryDomain: session.shop };
+  }
 }
 
 export const loader = async ({ request }) => {
@@ -57,7 +68,7 @@ export const action = async ({ request }) => {
   if (intent === "connect") {
     if (existing?.lumiframeStoreId) return json({ ok: true });
 
-    const { name, primaryDomain } = await getShopInfo(admin);
+    const { name, primaryDomain } = await getShopInfo(admin, session);
     const domain = primaryDomain || session.shop;
     const email = `${session.shop.replace(/[^a-z0-9]/gi, "-")}@shopify-connect.local`;
     const password = randomBytes(24).toString("hex");
