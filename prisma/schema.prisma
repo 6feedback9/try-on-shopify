@@ -1,7 +1,8 @@
-// This is this app's OWN database — completely separate from LumiOn's
+// This is this app's OWN database — completely separate from Lumi Frame's
 // Supabase/Postgres instance. It only stores Shopify OAuth sessions and,
-// per shop, which LumiOn brand it's connected to. No try-on photos or
-// results are ever stored here.
+// per shop, which Lumi Frame Store this shop is connected to. No try-on
+// photos or results are ever stored here — those live in Lumi Frame's own
+// database, reached only through its public HTTP API.
 
 datasource db {
   provider = "postgresql"
@@ -30,14 +31,26 @@ model Session {
   emailVerified Boolean?  @default(false)
 }
 
-// One row per installed shop. Links the shop to a brand record that lives
-// in LumiOn's own database — LumiOn is never queried or modified except
-// through its public HTTP API, using the api key stored here.
+// One row per installed shop. Links the shop to a Store record that lives
+// in Lumi Frame's own database (apps/api's Tenant/Store model) — Lumi
+// Frame is never queried or modified directly, only through its public
+// HTTP API (app/lumiframe.server.js).
 model ShopSettings {
-  id              String   @id @default(cuid())
-  shop            String   @unique
-  lumionBrandSlug String?
-  lumionApiKey    String?
+  id             String   @id @default(cuid())
+  shop           String   @unique
+
+  // Set once, automatically, the first time this shop connects (see
+  // app/routes/app.settings.jsx) — no manual key-pasting. lumiframeStoreId
+  // is the PUBLIC store id the storefront widget uses directly
+  // (TryOn.init({ storeId })) — it is not a secret. lumiframeEmail/
+  // lumiframePassword are a machine-generated Lumi Frame login used only
+  // server-side to re-authenticate (merchant JWTs expire after 7 days) when
+  // this app needs to call a merchant-authenticated Lumi Frame endpoint,
+  // e.g. PATCH /api/v1/store.
+  lumiframeStoreId String?
+  lumiframeEmail    String?
+  lumiframePassword String?
+
   widgetColor     String   @default("#111111")
   buttonLabel     String   @default("Try On With AI")
   enabled         Boolean  @default(false)

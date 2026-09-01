@@ -1,229 +1,86 @@
 /**
- * AI Glasses Try-On — storefront widget.
+ * AI Glasses Try-On — storefront loader.
  *
- * Only ever calls same-origin URLs under /apps/tryon/* (this app's Shopify
- * App Proxy). Never calls LumiOn directly and never sees a LumiOn API key —
- * that credential stays server-side, attached by the app backend.
+ * This file does NOT implement its own upload/generate/result UI — that
+ * would duplicate what Lumi Frame's own widget (@lumiframe/sdk) already
+ * does, safely, directly from the browser (see lumiframe's
+ * packages/sdk/README.md). This script only:
+ *   1. asks this app's App Proxy which Lumi Frame store this shop is
+ *      (same-origin, no secret involved — /apps/tryon/config)
+ *   2. loads Lumi Frame's real SDK from its own API
+ *   3. hands it this product's data via TryOn.attach()
  *
- * NOTE: the request below is forwarded as-is to LumiOn's existing
- * /api/tryon endpoint, whose current AI categories are tuned for clothing
- * (tops / bottoms / one-pieces). Verify eyewear results look right for a
- * few real product photos before going live — if they don't, LumiOn's
- * `category` handling may need a dedicated accessories/eyewear mode. That
- * would be a change made in LumiOn's own repo when you're ready for it —
- * this app doesn't require or assume it exists.
+ * TryOn.init() with autoInject:true (the SDK's default) places and styles
+ * the "Try on" button itself — nothing here builds one.
  */
 (function () {
   "use strict";
 
-  const PROXY = "/apps/tryon";
-
-  const T = {
-    title: "AI Glasses Try-On",
-    head: "Upload your photo",
-    desc: "A front-facing photo with good lighting works best.",
-    upload: "Upload photo",
-    generate: "Try On",
-    buy: "Add to cart",
-    retry: "Try Again",
-    save: "Save",
-    close: "✕",
-    generating: "Generating…",
-    genSub: "Usually takes 15–30 seconds",
-    errUpload: "We couldn't use this photo. Please try another one.",
-    errGen: "Something went wrong. Please try again.",
-    aiNote: "This image is generated using AI. Results may vary.",
-    disabled: "Try-on isn't available for this store right now.",
-  };
-
-  const SID = (function () {
-    let id = sessionStorage.getItem("agto_sid");
-    if (!id) {
-      id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      sessionStorage.setItem("agto_sid", id);
-    }
-    return id;
-  })();
-
-  let backdrop = null;
-  let personFile = null;
-  let resultUrl = null;
-  let tryonId = null;
-  let utmUrl = null;
+  const CONFIG_URL = "/apps/tryon/config";
 
   function readProduct(root) {
     return {
-      id: root.dataset.productId || "",
-      title: root.dataset.productTitle || document.title,
-      url: root.dataset.productUrl || window.location.href,
-      image: root.dataset.productImage || "",
+      productId: root.dataset.productId || "",
+      productTitle: root.dataset.productTitle || document.title,
+      productUrl: root.dataset.productUrl || window.location.href,
+      productImageUrl: root.dataset.productImage || "",
+      price: root.dataset.price ? Number(root.dataset.price) : undefined,
+      currency: root.dataset.currency || undefined,
+      sku: root.dataset.sku || undefined,
     };
   }
 
-  function open(root) {
-    if (backdrop) return;
-    const product = readProduct(root);
-
-    backdrop = document.createElement("div");
-    backdrop.className = "agto-backdrop";
-    backdrop.innerHTML = `
-      <div class="agto-modal" role="dialog" aria-modal="true" aria-label="${T.title}">
-        <div class="agto-header">
-          <span class="agto-title">${T.title}</span>
-          <button class="agto-close" aria-label="${T.close}">${T.close}</button>
-        </div>
-        <div class="agto-body">
-          <div id="agto-p1">
-            <p><strong>${T.head}</strong></p>
-            <p class="agto-hint">${T.desc}</p>
-            <div class="agto-zone" id="agto-zone">
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/heic" class="agto-file-input" id="agto-file">
-              <img class="agto-preview" id="agto-preview" alt="">
-              <div class="agto-placeholder">${T.upload}</div>
-            </div>
-            <div class="agto-error" id="agto-e1"></div>
-            <button class="agto-btn" id="agto-generate">${T.generate}</button>
-          </div>
-
-          <div id="agto-p2" style="display:none">
-            <div class="agto-generating">
-              <div class="agto-spinner"></div>
-              <p><strong>${T.generating}</strong></p>
-              <p class="agto-hint">${T.genSub}</p>
-            </div>
-          </div>
-
-          <div id="agto-p3" style="display:none">
-            <img class="agto-result-img" id="agto-result" alt="Try-on result">
-            <p class="agto-ai-note">${T.aiNote}</p>
-            <div class="agto-actions">
-              <button id="agto-save">${T.save}</button>
-              <button id="agto-retry">${T.retry}</button>
-            </div>
-            <div class="agto-error" id="agto-e3"></div>
-            <button class="agto-btn" id="agto-buy">${T.buy}</button>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(backdrop);
-    document.body.style.overflow = "hidden";
-
-    backdrop.querySelector(".agto-close").addEventListener("click", close);
-    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
-    document.addEventListener("keydown", onEsc);
-
-    const zone = backdrop.querySelector("#agto-zone");
-    const fileInput = backdrop.querySelector("#agto-file");
-    fileInput.addEventListener("change", (e) => { const f = e.target.files[0]; if (f) loadFile(f); });
-    zone.addEventListener("dragover", (e) => e.preventDefault());
-    zone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      const f = e.dataTransfer?.files?.[0];
-      if (f) loadFile(f);
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
     });
-
-    backdrop.querySelector("#agto-generate").addEventListener("click", () => generate(product));
   }
 
-  function loadFile(file) {
-    if (!file || !file.type.match(/^image\//)) return;
-    personFile = file;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      backdrop.querySelector("#agto-preview").src = e.target.result;
-      backdrop.querySelector("#agto-zone").classList.add("has-photo");
-    };
-    reader.readAsDataURL(file);
-  }
+  async function init() {
+    const root = document.querySelector("[data-agto-root]");
+    if (!root) return;
 
-  async function generate(product) {
-    const errEl = backdrop.querySelector("#agto-e1");
-    if (!personFile) {
-      errEl.textContent = T.errUpload;
-      errEl.style.display = "block";
+    let config;
+    try {
+      const res = await fetch(CONFIG_URL);
+      config = await res.json();
+    } catch (err) {
+      console.error("[AI Glasses Try-On] could not reach /apps/tryon/config", err);
       return;
     }
-    errEl.style.display = "none";
-    setStep(2);
 
-    try {
-      const fd = new FormData();
-      fd.append("person_photo", personFile, personFile.name);
-      fd.append("session_id", SID);
-      fd.append("product_id", product.id);
-      fd.append("product_name", product.title);
-      fd.append("product_url", product.url);
-      if (product.image) fd.append("garment_url", product.image);
+    if (!config.enabled) return; // not connected / not enabled — render nothing
 
-      const res = await fetch(`${PROXY}/tryon`, { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "generation failed");
-
-      resultUrl = data.result_url;
-      tryonId = data.tryon_id;
-      utmUrl = data.utm_url;
-
-      showResult(product);
-    } catch (err) {
-      setStep(1);
-      const e = backdrop.querySelector("#agto-e1");
-      e.textContent = T.errGen;
-      e.style.display = "block";
-      console.error("[AI Glasses Try-On]", err);
+    // Loaded once even if this block appears more than once on a page.
+    if (!window.TryOn) {
+      try {
+        await loadScript(`${config.apiBaseUrl}/sdk.js`);
+      } catch (err) {
+        console.error("[AI Glasses Try-On] failed to load Lumi Frame SDK", err);
+        return;
+      }
     }
-  }
+    if (!window.TryOn) {
+      console.error("[AI Glasses Try-On] Lumi Frame SDK did not define window.TryOn");
+      return;
+    }
 
-  function showResult(product) {
-    setStep(3);
-    backdrop.querySelector("#agto-result").src = resultUrl;
-
-    backdrop.querySelector("#agto-buy").addEventListener("click", () => {
-      fetch(`${PROXY}/order-ping`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tryon_id: tryonId, product_id: product.id }),
-      }).catch(() => {});
-      window.location.href = utmUrl || product.url;
+    // Color/style beyond the label are configured server-side, in Lumi
+    // Frame's own Store.widgetConfig (pushed there by this app's Settings
+    // page — see app/routes/app.settings.jsx) — the SDK reads that itself
+    // via storeId, so there's no color option to pass here.
+    window.TryOn.init({
+      storeId: config.storeId,
+      apiBaseUrl: config.apiBaseUrl,
+      buttonLabel: config.buttonLabel,
     });
 
-    backdrop.querySelector("#agto-save").addEventListener("click", () => {
-      const a = document.createElement("a");
-      a.href = resultUrl;
-      a.download = `tryon_${Date.now()}.jpg`;
-      a.click();
-    });
-
-    backdrop.querySelector("#agto-retry").addEventListener("click", () => {
-      personFile = null;
-      resultUrl = null;
-      backdrop.querySelector("#agto-zone").classList.remove("has-photo");
-      setStep(1);
-    });
-  }
-
-  function setStep(n) {
-    [1, 2, 3].forEach((i) => {
-      backdrop.querySelector(`#agto-p${i}`).style.display = i === n ? "block" : "none";
-    });
-  }
-
-  function close() {
-    if (!backdrop) return;
-    document.removeEventListener("keydown", onEsc);
-    backdrop.remove();
-    backdrop = null;
-    document.body.style.overflow = "";
-    personFile = null;
-    resultUrl = null;
-  }
-  function onEsc(e) { if (e.key === "Escape") close(); }
-
-  function init() {
-    document.querySelectorAll("[data-agto-root]").forEach((root) => {
-      const trigger = root.querySelector("[data-agto-open]");
-      if (trigger) trigger.addEventListener("click", () => open(root));
-    });
+    window.TryOn.attach(readProduct(root));
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

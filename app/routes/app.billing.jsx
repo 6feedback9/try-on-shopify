@@ -156,10 +156,10 @@ export default function Billing() {
                 One manual step after subscribing
               </Text>
               <Text as="p">
-                Shopify billing controls what the merchant pays — it doesn't change
-                LumiOn's own quota enforcement. After a plan change, update the
-                matching brand's <code>monthly_quota</code> in LumiOn's Supabase{" "}
-                <code>brands</code> table to the number shown above.
+                Shopify billing controls what the merchant pays here — it doesn't touch
+                Lumi Frame's own quota. Lumi Frame has no self-serve plan API; after a
+                plan change, assign the matching plan to this merchant's Lumi Frame
+                account yourself, in Lumi Frame's own admin console.
               </Text>
             </BlockStack>
           </Card>

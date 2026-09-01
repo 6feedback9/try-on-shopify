@@ -2,17 +2,9 @@
   AI Glasses Try-On — product page block.
   Add via theme editor: Product template → Add block → "AI Glasses Try-On".
 
-  If your store sells more than glasses, this block still gets added to
-  every product using the same template unless you scope it below —
-  otherwise it shows up on non-eyewear products too. Two ways to scope it
-  (can use either or both):
-    1. Fill in "Tag filter" and/or "Product type filter" below — the block
-       renders nothing unless the product matches.
-    2. Give glasses products their own alternate template in Shopify admin
-       (Product → Template) and only add this block to that template.
-
-  All storefront calls go to /apps/tryon/* (this app's App Proxy) — never
-  directly to LumiOn — so no LumiOn credentials ever reach the browser.
+  This just loads Lumi Frame's own widget (@lumiframe/sdk) and hands it
+  this product's real data via Liquid — no custom modal/button code lives
+  in this app, Lumi Frame's SDK builds and places the button itself.
 {% endcomment %}
 
 {% liquid
@@ -30,31 +22,31 @@
       assign agto_show = false
     endif
   endif
+
+  assign agto_price = product.selected_or_first_available_variant.price | default: product.price
+  assign agto_price = agto_price | divided_by: 100.0
 %}
 
 {% if agto_show %}
   <div
-    class="agto-root"
     data-agto-root
     data-product-id="{{ product.id }}"
     data-product-title="{{ product.title | escape }}"
     data-product-url="{{ product.url }}"
     data-product-image="{{ product.featured_image | image_url: width: 1200 }}"
+    data-price="{{ agto_price }}"
+    data-currency="{{ cart.currency.iso_code | default: shop.currency }}"
+    data-sku="{{ product.selected_or_first_available_variant.sku }}"
     data-color="{{ block.settings.accent_color }}"
     data-label="{{ block.settings.button_label | escape }}"
     {{ block.shopify_attributes }}
-  >
-    <button type="button" class="agto-trigger" data-agto-open style="border-color:{{ block.settings.accent_color }};color:{{ block.settings.accent_color }}">
-      <span aria-hidden="true">👓</span> {{ block.settings.button_label }}
-    </button>
-  </div>
+  ></div>
 {% endif %}
 
 {% schema %}
 {
   "name": "AI Glasses Try-On",
   "target": "section",
-  "stylesheet": "tryon-widget.css",
   "javascript": "tryon-widget.js",
   "settings": [
     {

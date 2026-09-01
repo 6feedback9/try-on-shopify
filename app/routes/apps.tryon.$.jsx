@@ -1,87 +1,39 @@
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import { forwardTryon, forwardOrderPing } from "../lumion.server";
 
 // ============================================================
 // Shopify App Proxy handler.
 //
-// The storefront (theme extension) only ever calls same-origin URLs like
-// https://{shop}/apps/tryon/tryon — Shopify verifies the request came from
-// that shop and forwards it here with a signed `shop` param. We resolve
-// that shop's LumiOn brand and act as the middleman:
-//
-//   storefront  -->  this route (verified, no LumiOn key exposed)  -->  LumiOn API
-//
-// This is the ONLY route that reaches LumiOn on behalf of a shopper.
+// The storefront calls this ONE endpoint, same-origin under the shop's own
+// domain (https://{shop}/apps/tryon/config), to learn which Lumi Frame
+// store it belongs to. Everything after that — uploading a photo,
+// generating the try-on, polling for the result — talks DIRECTLY to Lumi
+// Frame's own API from the browser via @lumiframe/sdk, using the public
+// storeId this returns. Lumi Frame's storeId is a publishable identifier
+// (like a Stripe publishable key), not a secret — see
+// lumiframe/apps/api/src/plugins/auth.ts — so there is nothing here to
+// protect by proxying the actual try-on request through this app.
 // ============================================================
-
-async function loadSettings(shop) {
-  return prisma.shopSettings.findUnique({ where: { shop } });
-}
 
 export const loader = async ({ request, params }) => {
   const { session } = await authenticate.public.appProxy(request);
-  if (!session) return json({ error: "Unknown shop" }, { status: 401 });
+  if (!session) return json({ enabled: false });
 
   const action = params["*"];
-  const settings = await loadSettings(session.shop);
+  if (action !== "config") return json({ error: "Not found" }, { status: 404 });
 
-  if (action === "config") {
-    if (!settings?.enabled || !settings.lumionBrandSlug || !settings.lumionApiKey) {
-      return json({ enabled: false });
-    }
-    return json({
-      enabled: true,
-      color: settings.widgetColor,
-      label: settings.buttonLabel,
-    });
+  const settings = await prisma.shopSettings.findUnique({ where: { shop: session.shop } });
+
+  if (!settings?.enabled || !settings.lumiframeStoreId) {
+    return json({ enabled: false });
   }
 
-  return json({ error: "Not found" }, { status: 404 });
-};
-
-export const action = async ({ request, params }) => {
-  const { session } = await authenticate.public.appProxy(request);
-  if (!session) return json({ error: "Unknown shop" }, { status: 401 });
-
-  const actionName = params["*"];
-  const settings = await loadSettings(session.shop);
-
-  if (!settings?.enabled || !settings.lumionBrandSlug || !settings.lumionApiKey) {
-    return json({ error: "Try-on is not configured for this store yet" }, { status: 503 });
-  }
-
-  if (actionName === "tryon" && request.method === "POST") {
-    // Forward the multipart body byte-for-byte (same content-type, same
-    // boundary) so LumiOn's existing /api/tryon parser doesn't need to
-    // change at all. The brand key is attached here, server-side only.
-    const contentType = request.headers.get("content-type") || "";
-    const bodyBuffer = Buffer.from(await request.arrayBuffer());
-
-    const upstream = await forwardTryon({
-      brandApiKey: settings.lumionApiKey,
-      contentType,
-      bodyBuffer,
-    });
-
-    const data = await upstream.json().catch(() => ({}));
-    return json(data, { status: upstream.status });
-  }
-
-  if (actionName === "order-ping" && request.method === "POST") {
-    const body = await request.json().catch(() => ({}));
-    // brand_slug is always forced to the shop's own connected brand —
-    // never trusted from the client — so one storefront can't ping pings
-    // for another merchant's brand.
-    const upstream = await forwardOrderPing({
-      brandSlug: settings.lumionBrandSlug,
-      tryonId: body.tryon_id,
-      productId: body.product_id,
-    });
-    const data = await upstream.json().catch(() => ({}));
-    return json(data, { status: upstream.status });
-  }
-
-  return json({ error: "Not found" }, { status: 404 });
+  return json({
+    enabled: true,
+    storeId: settings.lumiframeStoreId,
+    apiBaseUrl: process.env.LUMIFRAME_API_URL || "https://lumiframe-api.onrender.com",
+    buttonLabel: settings.buttonLabel,
+    color: settings.widgetColor,
+  });
 };

@@ -1,102 +1,114 @@
 # AI Glasses Try-On — Shopify App
 
 A public Shopify app that adds an AI-powered virtual try-on button to a
-product page, aimed at eyewear stores. Shoppers upload a photo, see the
-glasses on their own face, then click through to checkout.
+product page, for eyewear stores. Shoppers upload a photo, see the glasses
+on their own face, then click through to checkout.
 
 ## This is a fully separate project
 
 This repository (`try-on-shopify`) does **not** import, deploy, or modify
-anything in the `lumion` repository. It is a standalone Shopify app with
-its own codebase, its own database, and its own deploy target. LumiOn (aka
-"Frame") keeps running exactly as it does today, for its existing
-brands/clients, completely unaffected by anything here.
+anything in the `lumiframe` repository. It is a standalone Shopify app
+with its own codebase, its own database, and its own deploy target.
+**Lumi Frame** (`6feedback9/lumiframe`, deployed at
+`lumiframe-api.onrender.com`) keeps running exactly as it does today,
+completely unaffected by anything here.
 
-The only connection between the two projects is an HTTP call: this app's
-backend calls LumiOn's already-public REST API (`POST /api/tryon`, etc.),
-the same way `widget.js` already does today. See `app/lumion.server.js` —
-it is the single file in this codebase that talks to LumiOn, and it only
-ever does plain `fetch()` calls, scoped to one brand's API key at a time.
+> Earlier drafts of this project (and this README) assumed a different,
+> older backend (`6feedback9/lumion`) that turned out not to match what's
+> actually deployed. The real backend is `lumiframe`, a proper multi-app
+> monorepo (Tenant → Store → TryOnSession/TryOnGeneration, a Fastify API,
+> a merchant dashboard, and its own JS SDK). Everything below reflects
+> that real system.
+
+## The only connection between the two projects: two things, both read-only from here
+
+1. **Server-side, once per shop**: this app's backend calls Lumi Frame's
+   `POST /api/v1/auth/register` to create a new Tenant + Store for the
+   shop automatically (`app/lumiframe.server.js`, triggered from
+   `app/routes/app.settings.jsx`) — no manual signup, no pasted keys. This
+   is exactly the same signup flow a merchant would use on lumiframe's own
+   dashboard, just done in code.
+2. **Client-side, in the shopper's browser**: Lumi Frame's own widget
+   (`@lumiframe/sdk`, served at `{LUMIFRAME_API_URL}/sdk.js`) is loaded
+   directly by the storefront and talks straight to Lumi Frame's API using
+   the Store's public `storeId` — never through this app's backend. A
+   `storeId` is a publishable identifier (like a Stripe publishable key),
+   not a secret: Lumi Frame's own auth model
+   (`lumiframe/apps/api/src/plugins/auth.ts`) enforces the real security
+   boundary via Origin/Referer domain-checking, not by hiding the id. See
+   that file's own comment for the full reasoning.
 
 ```
-Shopper's browser
-   │  (same-origin, no LumiOn credentials ever reach the browser)
-   ▼
-https://{shop}.myshopify.com/apps/tryon/*   ← Shopify App Proxy (signed)
+Merchant installs the app
    │
    ▼
-This app's backend  (app/routes/apps.tryon.$.jsx)
-   │  attaches the shop's own LumiOn brand API key server-side
+app/routes/app.settings.jsx  →  POST /api/v1/auth/register  (Lumi Frame)
+   │  stores { lumiframeStoreId, lumiframeEmail, lumiframePassword }
+   │  in THIS app's own database (never Lumi Frame's)
    ▼
-LumiOn's existing API  (unchanged, separate repo/deploy)
+Shopper's browser (product page)
+   │  same-origin — asks this app "what's my storeId?"
+   ▼
+https://{shop}.myshopify.com/apps/tryon/config   ← Shopify App Proxy
+   │  returns { storeId, apiBaseUrl, buttonLabel } — nothing secret
+   ▼
+Loads {apiBaseUrl}/sdk.js directly, calls TryOn.init({ storeId })
    │
    ▼
-FASHN.ai + Supabase   (unchanged, LumiOn's own infrastructure)
+Lumi Frame's own API — unchanged, separate repo/deploy — handles
+everything from here: photo upload, AI generation, result, "add to cart"
 ```
-
-## How a store gets connected to LumiOn
-
-Each Shopify store that installs this app needs its own LumiOn "brand"
-record (LumiOn is already multi-tenant — see `brands` in
-`lumion/backend/schema.sql`), so try-on counts, quotas and results stay
-isolated per store exactly like they do for LumiOn's existing clients.
-
-For this MVP, provisioning is manual and additive — nothing in LumiOn's
-code changes:
-
-1. In Supabase (LumiOn's database), insert a new row into `brands` for the
-   store (slug, name, `shop_url`, `monthly_quota`, etc.) — the same way any
-   existing LumiOn client is set up today.
-2. Copy the generated `api_key`.
-3. In this app's embedded admin → **Settings**, paste the brand slug and
-   API key, then enable the widget.
-
-At real App Store scale you'll likely want to automate step 1 with one new,
-additive endpoint in LumiOn (e.g. `POST /api/admin/create-brand`, mirroring
-the existing `POST /api/admin/create-login`) so the app can provision a
-brand automatically on install. That's a small, backwards-compatible
-addition to make in the `lumion` repo whenever you're ready — this app
-doesn't require it to work today.
 
 ## Project layout
 
 ```
 app/
   shopify.server.js       Shopify OAuth/session/webhook setup
-  db.server.js             This app's OWN Prisma client (own DB, not LumiOn's)
-  lumion.server.js         The only file that calls LumiOn's API
+  db.server.js             This app's OWN Prisma client (own DB, not Lumi Frame's)
+  lumiframe.server.js      The only file that calls Lumi Frame's API
+  billing.js / billing.server.js   Shopify Billing plans (Starter/Brand/Agency)
   routes/
-    app.jsx, app._index.jsx, app.settings.jsx   Embedded admin (Polaris)
+    app.jsx, app._index.jsx, app.settings.jsx, app.billing.jsx   Embedded admin
     auth.$.jsx                                   OAuth
     webhooks.app.uninstalled.jsx                 Cleans up THIS app's own data
-    webhooks.app.scopes_update.jsx
     webhooks.compliance.jsx                      Mandatory GDPR webhooks
-    apps.tryon.$.jsx                             App Proxy → forwards to LumiOn
+    apps.tryon.$.jsx                             App Proxy → serves { storeId } only
 extensions/
-  glasses-try-on/           Theme App Extension (storefront button + modal)
-    blocks/tryon-button.liquid
-    assets/tryon-widget.js  Calls only /apps/tryon/* (never LumiOn directly)
-    assets/tryon-widget.css
-prisma/schema.prisma        Sessions + per-shop LumiOn connection settings
+  glasses-try-on/           Theme App Extension (storefront button)
+    blocks/tryon-button.liquid   Passes this product's real data via Liquid
+    assets/tryon-widget.js  Loads Lumi Frame's OWN sdk.js — no custom widget UI here
+prisma/schema.prisma        Sessions + per-shop Lumi Frame connection
 ```
 
-## Known limitation to validate before launch
+Notably **not** in this project: any custom try-on modal/upload UI, any
+photo handling, any AI provider code. All of that already exists and is
+maintained in `lumiframe` — duplicating it here would mean two widgets to
+keep in sync forever. This app's storefront piece is intentionally thin:
+load Lumi Frame's script, tell it which product, done.
 
-LumiOn's `/api/tryon` currently forwards to FASHN.ai with a `category` of
-`tops | bottoms | one-pieces` — tuned for clothing. Eyewear try-on is a
-different kind of overlay (face-focused, not full-body garment fitting).
-**Test the real output on a handful of glasses product photos before going
-live** — if results aren't convincing, that's a LumiOn/FASHN-side model
-question to solve in the `lumion` repo (e.g. a dedicated `accessories`
-mode), not something this app can work around on its own.
+## Billing — two independent, unconnected systems
 
-## Billing
+- **Shopify Billing** (`app/billing.js`) — what a merchant pays *you* to
+  use this Shopify app. Self-serve, via Shopify's own Billing API.
+- **Lumi Frame's plan/quota** (Tenant.plan in `lumiframe`) — how many
+  try-ons a store gets per month. Lumi Frame has no self-serve plan API;
+  the owner assigns plans manually via Lumi Frame's own admin console
+  (`lumiframe/DEPLOYMENT.md`'s "manual-billing flow"). **These two are not
+  wired together** — after a merchant picks a Shopify plan here, go assign
+  the matching Lumi Frame plan to their account yourself.
 
-Wired up via the Shopify Billing API (`app/billing.server.js`, `app/routes/app.billing.jsx`) — three recurring plans (Starter/Brand/Agency) with a 7-day free trial. Prices and quota labels in `app/billing.server.js` are placeholders; edit them before launch.
+## Known things to check before launch
 
-Shopify billing controls what a merchant pays; it does **not** change LumiOn's own quota enforcement (`brand.monthly_quota` on the LumiOn `brands` row). After a merchant picks a plan, update that brand's quota in Supabase to match — the Billing page in the app says the same thing as a reminder. A merchant can't turn the storefront widget on in Settings until they have an active plan.
-
-Shopify itself charges nothing for using the Billing API. If/when the app is monetized, Shopify takes 0% of the first $1M/year in app revenue and 15% above that — no cost otherwise.
+- **AI provider**: Lumi Frame defaults to `AI_PROVIDER=mock` (no real AI
+  calls) unless `lumiframe-api`'s own Render environment has it set to
+  `gemini` or `fashn` with a real API key (`lumiframe/DEPLOYMENT.md` §7).
+  Check that before expecting real try-on results.
+- **Shopify Billing 403**: as of this writing, Shopify's Billing API
+  returns a bare 403 for this Public-distribution app before it's
+  submitted for review — a platform limitation, not a bug here (confirmed
+  on a completely fresh app + fresh token). The plan requirement is gated
+  behind `BILLING_REQUIRED=true` (unset by default) so the core try-on
+  flow can be tested now; investigate again once actually submitting.
 
 ## Setup
 
