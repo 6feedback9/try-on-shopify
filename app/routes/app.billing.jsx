@@ -15,66 +15,26 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { ALL_PLANS, PLAN_DETAILS, TRIAL_DAYS } from "../billing";
 
+// If a session row exists for this shop but has no access token (e.g. left
+// over from an app that was deleted and recreated in the Partner
+// Dashboard — the old row's token was never invalidated/cleared because
+// the app/uninstalled webhook never fired for a deleted app, only for a
+// normal uninstall), any Admin GraphQL call throws
+// MissingRequiredArgument. Clear the stale row so the next full page load
+// re-does the embedded OAuth handshake and gets a real token.
+async function clearStaleSessionIfNeeded(session) {
+  if (session.accessToken) return false;
+  await prisma.session.deleteMany({ where: { shop: session.shop } }).catch(() => {});
+  return true;
+}
+
 export const loader = async ({ request }) => {
   // billing lives on the object authenticate.admin() returns for THIS
   // request — there is no standalone shopify.billing to import.
-  const { session, billing, admin } = await authenticate.admin(request);
+  const { session, billing } = await authenticate.admin(request);
 
-  // TEMP DIAGNOSTIC — remove once the billing 403 is root-caused.
-  try {
-    const shopRes = await admin.graphql(`#graphql
-      query { shop { name myshopifyDomain } }
-    `);
-    const shopData = await shopRes.json();
-    console.log("[DIAG] basic shop query result:", shopRes.status, JSON.stringify(shopData));
-  } catch (e) {
-    if (e instanceof Response) {
-      const body = await e.text().catch(() => "<unreadable>");
-      const headers = Object.fromEntries(e.headers?.entries?.() || []);
-      console.log(
-        "[DIAG] basic shop query threw a Response:",
-        e.status,
-        e.statusText,
-        "| headers:",
-        JSON.stringify(headers),
-        "| body:",
-        body,
-      );
-    } else {
-      let dump;
-      try {
-        dump = JSON.stringify(e, Object.getOwnPropertyNames(e));
-      } catch {
-        dump = String(e);
-      }
-      console.log("[DIAG] basic shop query threw non-Response:", e?.constructor?.name, dump);
-    }
-  }
-  try {
-    const rows = await prisma.session.findMany({ where: { shop: session.shop } });
-    console.log(
-      "[DIAG] sessions for",
-      session.shop,
-      JSON.stringify(
-        rows.map((r) => ({
-          id: r.id,
-          isOnline: r.isOnline,
-          scope: r.scope,
-          expires: r.expires,
-          hasAccessToken: !!r.accessToken,
-          tokenLength: r.accessToken?.length || 0,
-          tokenPrefix: r.accessToken?.slice(0, 6) || null,
-        })),
-      ),
-    );
-    console.log("[DIAG] current request session:", JSON.stringify({
-      isOnline: session.isOnline,
-      scope: session.scope,
-      hasAccessToken: !!session.accessToken,
-      tokenLength: session.accessToken?.length || 0,
-    }));
-  } catch (e) {
-    console.log("[DIAG] session lookup failed", e.message);
+  if (await clearStaleSessionIfNeeded(session)) {
+    return json({ activePlan: null, needsReload: true });
   }
 
   const billingCheck = await billing.check({ plans: ALL_PLANS, isTest: process.env.NODE_ENV !== "production" });
@@ -91,16 +51,20 @@ export const loader = async ({ request }) => {
       .catch(() => {});
   }
 
-  return json({ activePlan: active });
+  return json({ activePlan: active, needsReload: false });
 };
 
 export const action = async ({ request }) => {
-  const { billing } = await authenticate.admin(request);
+  const { session, billing } = await authenticate.admin(request);
   const form = await request.formData();
   const plan = String(form.get("plan") || "");
 
   if (!ALL_PLANS.includes(plan)) {
     return json({ error: "Unknown plan" }, { status: 400 });
+  }
+
+  if (await clearStaleSessionIfNeeded(session)) {
+    return json({ error: "Session was stale and has been reset — please fully reload the page and try again." }, { status: 409 });
   }
 
   // billing.request() throws a redirect to Shopify's hosted confirmation
@@ -115,7 +79,25 @@ export const action = async ({ request }) => {
 };
 
 export default function Billing() {
-  const { activePlan } = useLoaderData();
+  const { activePlan, needsReload } = useLoaderData();
+
+  if (needsReload) {
+    return (
+      <Page title="Billing" backAction={{ url: "/app" }}>
+        <Layout>
+          <Layout.Section>
+            <Banner tone="warning" title="One-time reset needed">
+              <p>
+                Found a stale session for this store and cleared it. Please fully
+                reload this page (Cmd/Ctrl+R, not just clicking a link) so Shopify
+                re-authenticates the app from scratch, then try again.
+              </p>
+            </Banner>
+          </Layout.Section>
+        </Layout>
+      </Page>
+    );
+  }
 
   return (
     <Page title="Billing" backAction={{ url: "/app" }}>
