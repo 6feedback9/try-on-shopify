@@ -2,25 +2,53 @@
   AI Glasses Try-On — product page block.
   Add via theme editor: Product template → Add block → "AI Glasses Try-On".
 
+  If your store sells more than glasses, this block still gets added to
+  every product using the same template unless you scope it below —
+  otherwise it shows up on non-eyewear products too. Two ways to scope it
+  (can use either or both):
+    1. Fill in "Tag filter" and/or "Product type filter" below — the block
+       renders nothing unless the product matches.
+    2. Give glasses products their own alternate template in Shopify admin
+       (Product → Template) and only add this block to that template.
+
   All storefront calls go to /apps/tryon/* (this app's App Proxy) — never
   directly to LumiOn — so no LumiOn credentials ever reach the browser.
 {% endcomment %}
 
-<div
-  class="agto-root"
-  data-agto-root
-  data-product-id="{{ product.id }}"
-  data-product-title="{{ product.title | escape }}"
-  data-product-url="{{ product.url }}"
-  data-product-image="{{ product.featured_image | image_url: width: 1200 }}"
-  data-color="{{ block.settings.accent_color }}"
-  data-label="{{ block.settings.button_label | escape }}"
-  {{ block.shopify_attributes }}
->
-  <button type="button" class="agto-trigger" data-agto-open style="border-color:{{ block.settings.accent_color }};color:{{ block.settings.accent_color }}">
-    <span aria-hidden="true">👓</span> {{ block.settings.button_label }}
-  </button>
-</div>
+{% liquid
+  assign agto_show = true
+
+  if block.settings.tag_filter != blank
+    assign agto_show = false
+    if product.tags contains block.settings.tag_filter
+      assign agto_show = true
+    endif
+  endif
+
+  if agto_show and block.settings.product_type_filter != blank
+    if product.type != block.settings.product_type_filter
+      assign agto_show = false
+    endif
+  endif
+%}
+
+{% if agto_show %}
+  <div
+    class="agto-root"
+    data-agto-root
+    data-product-id="{{ product.id }}"
+    data-product-title="{{ product.title | escape }}"
+    data-product-url="{{ product.url }}"
+    data-product-image="{{ product.featured_image | image_url: width: 1200 }}"
+    data-color="{{ block.settings.accent_color }}"
+    data-label="{{ block.settings.button_label | escape }}"
+    {{ block.shopify_attributes }}
+  >
+    <button type="button" class="agto-trigger" data-agto-open style="border-color:{{ block.settings.accent_color }};color:{{ block.settings.accent_color }}">
+      <span aria-hidden="true">👓</span> {{ block.settings.button_label }}
+    </button>
+  </div>
+{% endif %}
 
 {% schema %}
 {
@@ -40,6 +68,22 @@
       "id": "accent_color",
       "label": "Accent color",
       "default": "#111111"
+    },
+    {
+      "type": "header",
+      "content": "Only show on eyewear products"
+    },
+    {
+      "type": "text",
+      "id": "tag_filter",
+      "label": "Tag filter (optional)",
+      "info": "e.g. \"glasses\". If set, the button only shows on products with this tag. Leave blank to show on every product using this template."
+    },
+    {
+      "type": "text",
+      "id": "product_type_filter",
+      "label": "Product type filter (optional)",
+      "info": "e.g. \"Eyewear\" — must match the product's Type field exactly. Leave blank to ignore."
     }
   ]
 }

@@ -88,6 +88,15 @@ run `npm run deploy` to push the config and the theme extension.
    key, set a button label/color, and enable the widget.
 4. In the theme editor, open the Product template → Add block → **AI
    Glasses Try-On** → place it near the price or Add to cart button → Save.
+
+   **If the store sells more than glasses**, the block otherwise shows up
+   on every product using that template. Scope it in the block's own
+   settings: set **Tag filter** (e.g. tag all eyewear products `glasses`)
+   and/or **Product type filter** (must match the product's Type field
+   exactly). Alternatively, give eyewear products their own alternate
+   template (Product → Template in Shopify admin) and only add the block
+   there — more setup, but the button is then physically absent from
+   other templates rather than just hidden by a filter.
 5. Visit a real product page on the dev store and test the full flow with
    a real photo.
 
