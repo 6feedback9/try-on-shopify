@@ -23,6 +23,7 @@ export default function App() {
           Dashboard
         </Link>
         <Link to="/app/settings">Settings</Link>
+        <Link to="/app/billing">Billing</Link>
       </NavMenu>
       <Outlet />
     </AppProvider>

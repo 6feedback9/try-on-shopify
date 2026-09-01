@@ -36,6 +36,12 @@ api_version = "2025-01"
   compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
   uri = "/webhooks/compliance"
 
+  # Keeps ShopSettings.plan in sync when a merchant cancels, upgrades, or a
+  # charge is declined — independent of whether they were in the app at the time.
+  [[webhooks.subscriptions]]
+  topics = ["app_subscriptions/update"]
+  uri = "/webhooks/app_subscriptions/update"
+
 [app_proxy]
 # Storefront calls to https://{shop}/apps/tryon/* are forwarded here with a
 # verified signature. This is the ONLY path the theme extension calls — it

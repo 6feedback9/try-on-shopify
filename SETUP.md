@@ -91,7 +91,21 @@ run `npm run deploy` to push the config and the theme extension.
 5. Visit a real product page on the dev store and test the full flow with
    a real photo.
 
-## 8. Before submitting to the App Store
+## 8. Billing
+
+Plans are already wired up (Starter/Brand/Agency, Shopify Billing API, 7-day
+trial). Before going live:
+
+1. Open `app/billing.server.js` and set real prices/quota labels.
+2. After a merchant subscribes, manually update that brand's
+   `monthly_quota` in LumiOn's Supabase `brands` table to match the plan —
+   Shopify billing and LumiOn's quota enforcement aren't linked
+   automatically yet.
+3. Test with a real trial signup on your dev store — charges are created
+   with `isTest: true` outside of `NODE_ENV=production`, so nothing is
+   actually billed during development.
+
+## 9. Before submitting to the App Store
 
 - Verify eyewear try-on results actually look right (see the "Known
   limitation" note in `README.md`).

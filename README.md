@@ -90,6 +90,14 @@ live** — if results aren't convincing, that's a LumiOn/FASHN-side model
 question to solve in the `lumion` repo (e.g. a dedicated `accessories`
 mode), not something this app can work around on its own.
 
+## Billing
+
+Wired up via the Shopify Billing API (`app/billing.server.js`, `app/routes/app.billing.jsx`) — three recurring plans (Starter/Brand/Agency) with a 7-day free trial. Prices and quota labels in `app/billing.server.js` are placeholders; edit them before launch.
+
+Shopify billing controls what a merchant pays; it does **not** change LumiOn's own quota enforcement (`brand.monthly_quota` on the LumiOn `brands` row). After a merchant picks a plan, update that brand's quota in Supabase to match — the Billing page in the app says the same thing as a reminder. A merchant can't turn the storefront widget on in Settings until they have an active plan.
+
+Shopify itself charges nothing for using the Billing API. If/when the app is monetized, Shopify takes 0% of the first $1M/year in app revenue and 15% above that — no cost otherwise.
+
 ## Setup
 
 See [`SETUP.md`](./SETUP.md) for the step-by-step Partner Dashboard flow.

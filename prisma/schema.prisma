@@ -41,6 +41,10 @@ model ShopSettings {
   widgetColor     String   @default("#111111")
   buttonLabel     String   @default("Try On With AI")
   enabled         Boolean  @default(false)
+  // Name of the active Shopify Billing subscription (Starter/Brand/Agency),
+  // kept in sync by app/routes/app.billing.callback.jsx and the
+  // app_subscriptions/update webhook. Null = no active paid plan.
+  plan            String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

@@ -27,6 +27,7 @@ export const loader = async ({ request }) => {
     widgetColor: settings?.widgetColor || "#111111",
     buttonLabel: settings?.buttonLabel || "Try On With AI",
     enabled: settings?.enabled || false,
+    plan: settings?.plan || null,
   });
 };
 
@@ -40,9 +41,18 @@ export const action = async ({ request }) => {
   const buttonLabel = String(form.get("buttonLabel") || "Try On With AI").trim();
   const wantsEnabled = form.get("enabled") === "true";
 
+  const existing = await prisma.shopSettings.findUnique({ where: { shop: session.shop } });
+
   if (wantsEnabled && (!lumionBrandSlug || !lumionApiKey)) {
     return json(
       { ok: false, error: "Add both a LumiOn brand slug and API key before enabling the widget." },
+      { status: 400 },
+    );
+  }
+
+  if (wantsEnabled && !existing?.plan) {
+    return json(
+      { ok: false, error: "Choose a plan on the Billing page before enabling the widget." },
       { status: 400 },
     );
   }
@@ -101,6 +111,22 @@ export default function Settings() {
               <p>{actionData.error}</p>
             </Banner>
           )}
+        </Layout.Section>
+
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="200">
+              <Text as="h2" variant="headingMd">
+                Plan
+              </Text>
+              <Text as="p">
+                {data.plan ? `Current plan: ${data.plan}` : "No active plan — the widget can't be enabled until you choose one."}
+              </Text>
+              <InlineStack>
+                <Button url="/app/billing">{data.plan ? "Manage plan" : "Choose a plan"}</Button>
+              </InlineStack>
+            </BlockStack>
+          </Card>
         </Layout.Section>
 
         <Layout.Section>
