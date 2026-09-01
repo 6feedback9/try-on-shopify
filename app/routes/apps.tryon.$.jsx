@@ -34,6 +34,9 @@ export const loader = async ({ request, params }) => {
     storeId: settings.lumiframeStoreId,
     apiBaseUrl: process.env.LUMIFRAME_API_URL || "https://lumiframe-api.onrender.com",
     buttonLabel: settings.buttonLabel,
-    color: settings.widgetColor,
+    // No color here on purpose — button/window appearance beyond the
+    // label lives entirely in Lumi Frame's own Store.widgetConfig (set on
+    // this app's Settings page), which the SDK fetches itself via
+    // storeId. There's no init()-time color option to hand it.
   });
 };

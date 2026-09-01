@@ -84,19 +84,24 @@ export async function getFreshToken(shopSettings) {
   return login.ok ? login.token : null;
 }
 
-/** Pushes button label/color into Lumi Frame's own Store.widgetConfig — the SDK reads this server-side via storeId, it isn't passed at TryOn.init() time. */
-export async function updateWidgetConfig(token, { buttonLabel, color }) {
+/** Reads the store's current record, including widgetConfig — used to pre-fill the Settings form with whatever's actually live. */
+export async function getStore(token) {
+  const { ok, data } = await lumiframeFetch("/api/v1/store", { token });
+  return ok ? data : null;
+}
+
+/**
+ * Merges `partialConfig` into Lumi Frame's own Store.widgetConfig — the
+ * SDK reads this server-side via storeId, none of it is passed at
+ * TryOn.init() time. Shallow-merges on top of whatever's already saved so
+ * callers can update just the fields for one tab (button vs. modal vs.
+ * card) without clobbering the others.
+ */
+export async function updateWidgetConfig(token, partialConfig) {
   return lumiframeFetch("/api/v1/store", {
     method: "PATCH",
     token,
-    body: {
-      widgetConfig: {
-        buttonText: buttonLabel,
-        primaryColor: color,
-        buttonColorStart: color,
-        buttonColorEnd: color,
-      },
-    },
+    body: { widgetConfig: partialConfig },
   });
 }
 
