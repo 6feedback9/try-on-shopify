@@ -28,20 +28,27 @@ export const loader = async ({ request }) => {
     const shopData = await shopRes.json();
     console.log("[DIAG] basic shop query result:", shopRes.status, JSON.stringify(shopData));
   } catch (e) {
-    let dump;
-    try {
-      dump = JSON.stringify(e, Object.getOwnPropertyNames(e));
-    } catch {
-      dump = String(e);
+    if (e instanceof Response) {
+      const body = await e.text().catch(() => "<unreadable>");
+      const headers = Object.fromEntries(e.headers?.entries?.() || []);
+      console.log(
+        "[DIAG] basic shop query threw a Response:",
+        e.status,
+        e.statusText,
+        "| headers:",
+        JSON.stringify(headers),
+        "| body:",
+        body,
+      );
+    } else {
+      let dump;
+      try {
+        dump = JSON.stringify(e, Object.getOwnPropertyNames(e));
+      } catch {
+        dump = String(e);
+      }
+      console.log("[DIAG] basic shop query threw non-Response:", e?.constructor?.name, dump);
     }
-    console.log(
-      "[DIAG] basic shop query threw:",
-      e?.constructor?.name,
-      "| response status:",
-      e?.response?.status,
-      "| dump:",
-      dump,
-    );
   }
   try {
     const rows = await prisma.session.findMany({ where: { shop: session.shop } });
