@@ -18,9 +18,18 @@ import { ALL_PLANS, PLAN_DETAILS, TRIAL_DAYS } from "../billing";
 export const loader = async ({ request }) => {
   // billing lives on the object authenticate.admin() returns for THIS
   // request — there is no standalone shopify.billing to import.
-  const { session, billing } = await authenticate.admin(request);
+  const { session, billing, admin } = await authenticate.admin(request);
 
   // TEMP DIAGNOSTIC — remove once the billing 403 is root-caused.
+  try {
+    const shopRes = await admin.graphql(`#graphql
+      query { shop { name myshopifyDomain } }
+    `);
+    const shopData = await shopRes.json();
+    console.log("[DIAG] basic shop query result:", shopRes.status, JSON.stringify(shopData));
+  } catch (e) {
+    console.log("[DIAG] basic shop query threw:", e.message);
+  }
   try {
     const rows = await prisma.session.findMany({ where: { shop: session.shop } });
     console.log(
