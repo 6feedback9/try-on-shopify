@@ -11,14 +11,16 @@ import {
   Badge,
   Banner,
 } from "@shopify/polaris";
-import { authenticate, billing } from "../shopify.server";
+import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import { ALL_PLANS, PLAN_DETAILS } from "../billing";
+import { ALL_PLANS, PLAN_DETAILS, TRIAL_DAYS } from "../billing";
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  // billing lives on the object authenticate.admin() returns for THIS
+  // request — there is no standalone shopify.billing to import.
+  const { session, billing } = await authenticate.admin(request);
 
-  const billingCheck = await billing.check({ session, plans: ALL_PLANS, isTest: process.env.NODE_ENV !== "production" });
+  const billingCheck = await billing.check({ plans: ALL_PLANS, isTest: process.env.NODE_ENV !== "production" });
   const active = billingCheck.appSubscriptions?.[0]?.name || null;
 
   // Keep our own copy in sync in case a webhook hasn't landed yet.
@@ -36,7 +38,7 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { billing } = await authenticate.admin(request);
   const form = await request.formData();
   const plan = String(form.get("plan") || "");
 
@@ -48,7 +50,6 @@ export const action = async ({ request }) => {
   // page, so nothing after this line normally runs.
   await billing.request({
     plan,
-    session,
     isTest: process.env.NODE_ENV !== "production",
     returnUrl: `${process.env.SHOPIFY_APP_URL || ""}/app/billing/callback`,
   });
@@ -63,7 +64,7 @@ export default function Billing() {
     <Page title="Billing" backAction={{ url: "/app" }}>
       <Layout>
         <Layout.Section>
-          <Banner tone="info" title="Billed immediately — no free trial">
+          <Banner tone="info" title={`${TRIAL_DAYS}-day free trial on every plan`}>
             <p>
               Prices here are placeholders for launch — edit them in{" "}
               <code>app/billing.js</code> before submitting to the App Store.

@@ -1,15 +1,14 @@
 import { redirect } from "@remix-run/node";
-import { authenticate, billing } from "../shopify.server";
+import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { ALL_PLANS } from "../billing";
 
 // Shopify sends the merchant back here after they approve (or decline) a
 // charge on the hosted confirmation page.
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, billing } = await authenticate.admin(request);
 
   const billingCheck = await billing.check({
-    session,
     plans: ALL_PLANS,
     isTest: process.env.NODE_ENV !== "production",
   });

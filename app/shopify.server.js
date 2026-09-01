@@ -32,7 +32,6 @@ export const apiVersion = ApiVersion.January25;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;
-export const billing = shopify.billing;
 export const login = shopify.login;
 export const registerWebhooks = shopify.registerWebhooks;
 export const sessionStorage = shopify.sessionStorage;

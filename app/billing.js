@@ -23,5 +23,6 @@ export const PLAN_DETAILS = {
   [PLAN_AGENCY]: { price: 79.99, quota: 2000, blurb: "For high-traffic stores or agencies running try-on across catalogs." },
 };
 
-// No free trial — every plan charges from the moment a merchant subscribes.
-export const TRIAL_DAYS = 0;
+// 7-day free trial on every plan (temporary, for testing — revisit before
+// public launch, see instruction history).
+export const TRIAL_DAYS = 7;
