@@ -26,8 +26,24 @@ export const loader = async ({ request }) => {
     console.log(
       "[DIAG] sessions for",
       session.shop,
-      JSON.stringify(rows.map((r) => ({ id: r.id, isOnline: r.isOnline, scope: r.scope, expires: r.expires }))),
+      JSON.stringify(
+        rows.map((r) => ({
+          id: r.id,
+          isOnline: r.isOnline,
+          scope: r.scope,
+          expires: r.expires,
+          hasAccessToken: !!r.accessToken,
+          tokenLength: r.accessToken?.length || 0,
+          tokenPrefix: r.accessToken?.slice(0, 6) || null,
+        })),
+      ),
     );
+    console.log("[DIAG] current request session:", JSON.stringify({
+      isOnline: session.isOnline,
+      scope: session.scope,
+      hasAccessToken: !!session.accessToken,
+      tokenLength: session.accessToken?.length || 0,
+    }));
   } catch (e) {
     console.log("[DIAG] session lookup failed", e.message);
   }
