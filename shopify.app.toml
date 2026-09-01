@@ -4,7 +4,7 @@
 # you run `npm run config:link` and connect this codebase to an app you
 # create in the Partner Dashboard. Do not hand-edit them beforehand.
 
-client_id = ""
+client_id = "40062f0e1e7d715a2012f254b3adc1e9"
 name = "AI Glasses Try-On"
 handle = "ai-glasses-try-on"
 application_url = "https://try-on-shopify.onrender.com"
@@ -43,10 +43,10 @@ api_version = "2025-01"
   uri = "/webhooks/app_subscriptions/update"
 
 [app_proxy]
-# Storefront calls to https://{shop}/apps/tryon/* are forwarded here with a
-# verified signature. This is the ONLY path the theme extension calls — it
-# never talks to the LumiOn API directly, so no LumiOn credentials are ever
-# exposed to the browser.
+# Storefront calls to https://{shop}/apps/tryon/config are forwarded here
+# with a verified signature — the only thing it returns is a public
+# storeId. The actual try-on flow talks directly to Lumi Frame's own API
+# from the browser (see README.md); nothing secret ever passes through here.
 url = "https://try-on-shopify.onrender.com/apps/tryon"
 subpath = "tryon"
 prefix = "apps"
