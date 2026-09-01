@@ -7,7 +7,7 @@
 client_id = ""
 name = "AI Glasses Try-On"
 handle = "ai-glasses-try-on"
-application_url = "https://your-app-url.example.com"
+application_url = "https://try-on-shopify.onrender.com"
 embedded = true
 
 [access_scopes]
@@ -15,9 +15,9 @@ scopes = "read_products"
 
 [auth]
 redirect_urls = [
-  "https://your-app-url.example.com/auth/callback",
-  "https://your-app-url.example.com/auth/shopify/callback",
-  "https://your-app-url.example.com/api/auth/callback"
+  "https://try-on-shopify.onrender.com/auth/callback",
+  "https://try-on-shopify.onrender.com/auth/shopify/callback",
+  "https://try-on-shopify.onrender.com/api/auth/callback"
 ]
 
 [webhooks]
@@ -47,7 +47,7 @@ api_version = "2025-01"
 # verified signature. This is the ONLY path the theme extension calls — it
 # never talks to the LumiOn API directly, so no LumiOn credentials are ever
 # exposed to the browser.
-url = "https://your-app-url.example.com/apps/tryon"
+url = "https://try-on-shopify.onrender.com/apps/tryon"
 subpath = "tryon"
 prefix = "apps"
 
