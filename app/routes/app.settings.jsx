@@ -145,6 +145,8 @@ export default function Settings() {
   const submittingIntent = navigation.formData?.get("intent");
 
   const [enabled, setEnabled] = useState(data.enabled);
+  const [buttonLabel, setButtonLabel] = useState(data.buttonLabel);
+  const [widgetColor, setWidgetColor] = useState(data.widgetColor);
 
   return (
     <Page title="Settings" backAction={{ url: "/app" }}>
@@ -222,13 +224,15 @@ export default function Settings() {
                 <TextField
                   label="Button label"
                   name="buttonLabel"
-                  defaultValue={data.buttonLabel}
+                  value={buttonLabel}
+                  onChange={setButtonLabel}
                   autoComplete="off"
                 />
                 <TextField
                   label="Accent color"
                   name="widgetColor"
-                  defaultValue={data.widgetColor}
+                  value={widgetColor}
+                  onChange={setWidgetColor}
                   autoComplete="off"
                   helpText="Hex color, e.g. #111111."
                 />
