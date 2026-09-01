@@ -17,6 +17,15 @@
   "use strict";
 
   const CONFIG_URL = "/apps/tryon/config";
+  const SUPPORTED_LOCALES = ["en", "uk", "ru"]; // all @lumiframe/sdk currently supports
+
+  // Shopify's own storefront language (Markets/Locales) — whatever the
+  // shopper is actually browsing the store in — falling back to English
+  // for anything the SDK doesn't have a translation for.
+  function resolveLocale(root) {
+    const raw = (root.dataset.locale || "").toLowerCase().split("-")[0];
+    return SUPPORTED_LOCALES.includes(raw) ? raw : "en";
+  }
 
   function readProduct(root) {
     return {
@@ -78,6 +87,7 @@
       storeId: config.storeId,
       apiBaseUrl: config.apiBaseUrl,
       buttonLabel: config.buttonLabel,
+      locale: resolveLocale(root),
     });
 
     window.TryOn.attach(readProduct(root));
