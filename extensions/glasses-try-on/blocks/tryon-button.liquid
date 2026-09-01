@@ -5,6 +5,13 @@
   This just loads Lumi Frame's own widget (@lumiframe/sdk) and hands it
   this product's real data via Liquid — no custom modal/button code lives
   in this app, Lumi Frame's SDK builds and places the button itself.
+
+  Button label/color are NOT configured here — they're set once, for the
+  whole store, on this app's own Settings page (which pushes them into
+  Lumi Frame's Store.widgetConfig, read by the SDK itself). A per-block
+  "Accent color" setting used to live here but did nothing — the SDK has
+  no init()-time color option, only a label one — so it was removed to
+  avoid the confusing "I set it here but nothing changed" trap.
 {% endcomment %}
 
 {% liquid
@@ -37,8 +44,6 @@
     data-price="{{ agto_price }}"
     data-currency="{{ cart.currency.iso_code | default: shop.currency }}"
     data-sku="{{ product.selected_or_first_available_variant.sku }}"
-    data-color="{{ block.settings.accent_color }}"
-    data-label="{{ block.settings.button_label | escape }}"
     {{ block.shopify_attributes }}
   ></div>
 {% endif %}
@@ -50,16 +55,8 @@
   "javascript": "tryon-widget.js",
   "settings": [
     {
-      "type": "text",
-      "id": "button_label",
-      "label": "Button label",
-      "default": "Try On With AI"
-    },
-    {
-      "type": "color",
-      "id": "accent_color",
-      "label": "Accent color",
-      "default": "#111111"
+      "type": "paragraph",
+      "content": "Button label and color are set once for the whole store, on this app's own Settings page — not here."
     },
     {
       "type": "header",
