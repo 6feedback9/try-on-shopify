@@ -178,8 +178,34 @@
   // overlay link to intercept clicks on for a given injected badge.
   const cardDataByImage = new WeakMap();
 
+  // Lazy-loaded thumbnails (loading="lazy", common on catalog pages) often
+  // haven't resolved a real currentSrc/src yet at page-load time, when
+  // this runs — confirmed on a real store: an empty productImageUrl made
+  // Lumi Frame's API reject the generate request outright ("Invalid
+  // request body" — it requires a real URL). Check every place a theme
+  // might be keeping the real address, and normalize a protocol-relative
+  // CDN URL (//cdn.shopify.com/...) to https:// — same quirk
+  // packages/sdk/README.md notes for the single-product page.
   function resolveImageSrc(img) {
-    return img.currentSrc || img.src || img.getAttribute("data-src") || "";
+    const candidates = [
+      img.currentSrc,
+      img.getAttribute("src"),
+      img.getAttribute("data-src"),
+      firstSrcsetUrl(img.getAttribute("data-srcset")),
+      firstSrcsetUrl(img.getAttribute("srcset")),
+    ];
+    for (let c of candidates) {
+      if (!c) continue;
+      c = c.trim();
+      if (c.startsWith("//")) c = "https:" + c;
+      if (/^https?:\/\//.test(c)) return c;
+    }
+    return "";
+  }
+
+  function firstSrcsetUrl(srcset) {
+    if (!srcset) return undefined;
+    return srcset.split(",")[0]?.trim().split(/\s+/)[0];
   }
 
   function markCardsForFallbackDetection(widgetConfig) {
@@ -203,6 +229,9 @@
       }
       if (!img || img.hasAttribute("data-lumiframe-card") || img.closest(CART_CONTAINER_SELECTOR)) continue;
 
+      const imageUrl = resolveImageSrc(img);
+      if (!imageUrl) continue; // no real address yet (still lazy-loading) — a button here would just fail on click
+
       seenHrefs.add(link.href);
       img.setAttribute("data-lumiframe-card", "");
       img.setAttribute("data-lumiframe-url", link.href);
@@ -212,7 +241,7 @@
 
       cardDataByImage.set(img, {
         link,
-        product: { productId: link.href, productUrl: link.href, productImageUrl: resolveImageSrc(img), productTitle: title || undefined },
+        product: { productId: link.href, productUrl: link.href, productImageUrl: imageUrl, productTitle: title || undefined },
       });
     }
   }
