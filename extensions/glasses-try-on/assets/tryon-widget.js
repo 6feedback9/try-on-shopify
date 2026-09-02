@@ -42,8 +42,10 @@
   // shopper is actually browsing the store in — falling back to English
   // for anything the SDK doesn't have a translation for. `root` is only
   // present on a product page (see readProduct/init below); elsewhere
-  // fall back to the page's own declared language.
-  function resolveLocale(root) {
+  // fall back to the page's own declared language. Settings' "Language"
+  // field overrides all of this when set to anything but "auto".
+  function resolveLocale(root, widgetConfig) {
+    if (widgetConfig && SUPPORTED_LOCALES.includes(widgetConfig.widgetLanguage)) return widgetConfig.widgetLanguage;
     const raw = ((root && root.dataset.locale) || document.documentElement.lang || "").toLowerCase().split("-")[0];
     return SUPPORTED_LOCALES.includes(raw) ? raw : "en";
   }
@@ -432,7 +434,7 @@
       storeId: config.storeId,
       apiBaseUrl: config.apiBaseUrl,
       buttonLabel: config.buttonLabel,
-      locale: resolveLocale(root),
+      locale: resolveLocale(root, widgetConfig),
 
       buttonStyle: widgetConfig.buttonStyle,
       buttonColorStart: sanitizeColor(widgetConfig.buttonColorStart),

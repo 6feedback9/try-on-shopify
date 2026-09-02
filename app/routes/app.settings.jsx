@@ -73,6 +73,11 @@ function widgetConfigDefaults(saved, fallbackButtonLabel) {
     buttonAnimation: w.buttonAnimation ?? "none",
     buttonPosition: w.buttonPosition ?? "after",
     buttonAutoMatchTheme: w.buttonAutoMatchTheme ?? false,
+    // "auto" (default) reads the shopper's own storefront language
+    // (Markets/Locales) per page view — tryon-widget.js's resolveLocale().
+    // Anything else forces every shopper into that one language regardless
+    // of their storefront locale.
+    widgetLanguage: w.widgetLanguage ?? "auto",
     modalHeading: w.modalHeading ?? "",
     modalSubheading: w.modalSubheading ?? "",
     modalAccentColorStart: w.modalAccentColorStart ?? "",
@@ -267,6 +272,12 @@ const VISIBILITY_MODE_OPTIONS = [
   { label: "All products", value: "all" },
   { label: "Only a specific collection", value: "collection" },
   { label: "Only specific products", value: "products" },
+];
+const WIDGET_LANGUAGE_OPTIONS = [
+  { label: "Auto-detect (recommended)", value: "auto" },
+  { label: "Always English", value: "en" },
+  { label: "Always Ukrainian", value: "uk" },
+  { label: "Always Russian", value: "ru" },
 ];
 
 // ── Live preview ──────────────────────────────────────────────────────
@@ -737,6 +748,16 @@ export default function Settings() {
                   <Text as="p" tone="subdued">
                     Configure how the "Try on" button looks on your site.
                   </Text>
+                </div>
+
+                <div style={{ padding: "16px 16px 0", maxWidth: 360 }}>
+                  <Select
+                    label="Language"
+                    options={WIDGET_LANGUAGE_OPTIONS}
+                    value={widget.widgetLanguage}
+                    onChange={set("widgetLanguage")}
+                    helpText="Auto-detect follows each shopper's own storefront language."
+                  />
                 </div>
 
                 <Tabs tabs={tabs} selected={tab} onSelect={setTab} />
