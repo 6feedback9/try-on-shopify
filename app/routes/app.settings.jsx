@@ -30,6 +30,7 @@ import {
   getStore,
   updateWidgetConfig,
 } from "../lumiframe.server";
+import { createTranslator, ADMIN_LANGUAGES, ADMIN_LANGUAGE_NAMES } from "../i18n";
 
 // Falls back to session.shop-derived values if the Admin GraphQL call
 // fails — currently a known platform issue for a pre-review Public app
@@ -76,7 +77,9 @@ function widgetConfigDefaults(saved, fallbackButtonLabel) {
     // "auto" (default) reads the shopper's own storefront language
     // (Markets/Locales) per page view — tryon-widget.js's resolveLocale().
     // Anything else forces every shopper into that one language regardless
-    // of their storefront locale.
+    // of their storefront locale. Unrelated to this app's OWN admin
+    // language (ShopSettings.adminLanguage, see the loader/action below) —
+    // that's per merchant, this is per shopper.
     widgetLanguage: w.widgetLanguage ?? "auto",
     modalHeading: w.modalHeading ?? "",
     modalSubheading: w.modalSubheading ?? "",
@@ -137,6 +140,7 @@ export const loader = async ({ request }) => {
     widgetConfig: widgetConfigDefaults(savedWidgetConfig, settings?.buttonLabel),
     enabled: settings?.enabled || false,
     plan: settings?.plan || null,
+    lang: settings?.adminLanguage || "en",
   });
 };
 
@@ -146,6 +150,19 @@ export const action = async ({ request }) => {
   const intent = String(form.get("intent") || "save");
 
   const existing = await prisma.shopSettings.findUnique({ where: { shop: session.shop } });
+  const t = createTranslator(existing?.adminLanguage || "en");
+
+  // ── Set app language: its own small form, saves immediately ──────────
+  if (intent === "setLanguage") {
+    const lang = String(form.get("lang") || "en");
+    if (!ADMIN_LANGUAGES.includes(lang)) return json({ ok: false, error: "Unknown language" }, { status: 400 });
+    await prisma.shopSettings.upsert({
+      where: { shop: session.shop },
+      create: { shop: session.shop, adminLanguage: lang },
+      update: { adminLanguage: lang },
+    });
+    return json({ ok: true });
+  }
 
   // ── Connect: create a Lumi Frame Store for this shop automatically —
   // no manual signup, no pasted keys. Safe to click more than once:
@@ -166,7 +183,7 @@ export const action = async ({ request }) => {
     });
 
     if (!result.ok) {
-      return json({ ok: false, error: `Could not connect to Lumi Frame: ${result.error}` }, { status: 400 });
+      return json({ ok: false, error: t("err.couldNotConnect", { error: result.error }) }, { status: 400 });
     }
 
     // Cover both the myshopify.com domain and the shop's primary/custom
@@ -200,18 +217,18 @@ export const action = async ({ request }) => {
   try {
     widgetConfig = JSON.parse(String(form.get("widgetConfigJson") || "{}"));
   } catch {
-    return json({ ok: false, error: "Malformed appearance data — please reload and try again." }, { status: 400 });
+    return json({ ok: false, error: t("err.malformedData") }, { status: 400 });
   }
 
   if (wantsEnabled && !existing?.lumiframeStoreId) {
-    return json({ ok: false, error: "Connect to Lumi Frame before enabling the widget." }, { status: 400 });
+    return json({ ok: false, error: t("err.connectFirst") }, { status: 400 });
   }
 
   // TEMP: see the same note in app.billing.jsx — Shopify's Billing API
   // currently 403s for this Public-distribution app pre-review.
   const billingRequired = process.env.BILLING_REQUIRED === "true";
   if (billingRequired && wantsEnabled && !existing?.plan) {
-    return json({ ok: false, error: "Choose a plan on the Billing page before enabling the widget." }, { status: 400 });
+    return json({ ok: false, error: t("err.choosePlanFirst") }, { status: 400 });
   }
 
   await prisma.shopSettings.update({
@@ -240,45 +257,49 @@ export const action = async ({ request }) => {
   return json({ ok: true });
 };
 
-const BUTTON_STYLE_OPTIONS = [
-  { label: "Gradient", value: "gradient" },
-  { label: "Solid", value: "solid" },
-  { label: "Outline", value: "outline" },
+const buttonStyleOptions = (t) => [
+  { label: t("fillOpt.gradient"), value: "gradient" },
+  { label: t("fillOpt.solid"), value: "solid" },
+  { label: t("fillOpt.outline"), value: "outline" },
 ];
-const BUTTON_SHAPE_OPTIONS = [
-  { label: "Rounded", value: "rounded" },
-  { label: "Rectangular", value: "rectangular" },
+const buttonShapeOptions = (t) => [
+  { label: t("shapeOpt.rounded"), value: "rounded" },
+  { label: t("shapeOpt.rectangular"), value: "rectangular" },
 ];
-const BUTTON_ANIMATION_OPTIONS = [
-  { label: "None", value: "none" },
-  { label: "Pulse", value: "pulse" },
-  { label: "Shimmer", value: "shimmer" },
+const buttonAnimationOptions = (t) => [
+  { label: t("animOpt.none"), value: "none" },
+  { label: t("animOpt.pulse"), value: "pulse" },
+  { label: t("animOpt.shimmer"), value: "shimmer" },
 ];
-const BUTTON_POSITION_OPTIONS = [
-  { label: "Before add to cart", value: "before" },
-  { label: "After add to cart", value: "after" },
-  { label: "Floating", value: "floating" },
+const buttonPositionOptions = (t) => [
+  { label: t("posOpt.before"), value: "before" },
+  { label: t("posOpt.after"), value: "after" },
+  { label: t("posOpt.floating"), value: "floating" },
 ];
-const MODAL_LAYOUT_OPTIONS = [
-  { label: "Split (full-page)", value: "split" },
-  { label: "Compact (floating card)", value: "compact" },
+const modalLayoutOptions = (t) => [
+  { label: t("layoutOpt.split"), value: "split" },
+  { label: t("layoutOpt.compact"), value: "compact" },
 ];
-const CARD_VARIANT_OPTIONS = [
-  { label: "Corner", value: "corner" },
-  { label: "Drawer", value: "drawer" },
-  { label: "Scrim", value: "scrim" },
+const cardVariantOptions = (t) => [
+  { label: t("cardOpt.corner"), value: "corner" },
+  { label: t("cardOpt.drawer"), value: "drawer" },
+  { label: t("cardOpt.scrim"), value: "scrim" },
 ];
-const VISIBILITY_MODE_OPTIONS = [
-  { label: "All products", value: "all" },
-  { label: "Only a specific collection", value: "collection" },
-  { label: "Only specific products", value: "products" },
+const visibilityModeOptions = (t) => [
+  { label: t("visOpt.all"), value: "all" },
+  { label: t("visOpt.collection"), value: "collection" },
+  { label: t("visOpt.products"), value: "products" },
 ];
-const WIDGET_LANGUAGE_OPTIONS = [
-  { label: "Auto-detect (recommended)", value: "auto" },
-  { label: "Always English", value: "en" },
-  { label: "Always Ukrainian", value: "uk" },
-  { label: "Always Russian", value: "ru" },
+// Storefront widget language — limited to what @lumiframe/sdk itself has
+// translations for (en/uk/ru), independent of this admin app's own
+// language list (ADMIN_LANGUAGES).
+const widgetLanguageOptions = (t) => [
+  { label: t("langOpt.auto"), value: "auto" },
+  { label: t("langOpt.alwaysEn"), value: "en" },
+  { label: t("langOpt.alwaysUk"), value: "uk" },
+  { label: t("langOpt.alwaysRu"), value: "ru" },
 ];
+const adminLanguageOptions = () => ADMIN_LANGUAGES.map((code) => ({ label: ADMIN_LANGUAGE_NAMES[code], value: code }));
 
 // ── Live preview ──────────────────────────────────────────────────────
 // Pure CSS mock-ups of the button/window/card, built straight from the
@@ -352,14 +373,11 @@ function ButtonPreview({ widget }) {
   );
 }
 
-function ProductCardPreview({ widget }) {
+function ProductCardPreview({ widget, t }) {
   if (widget.buttonAutoMatchTheme) {
     return (
       <Text as="p" tone="subdued">
-        Auto-match is on — the button will copy your theme's real "Add to cart" button
-        color and shape on your actual store. This preview can't show that here (it
-        only sees this settings page, not your storefront) — check the button on the
-        real product page instead.
+        {t("preview.autoMatchNote")}
       </Text>
     );
   }
@@ -378,7 +396,7 @@ function ProductCardPreview({ widget }) {
         whiteSpace: "nowrap",
       }}
     >
-      Add to cart
+      {t("preview.addToCart")}
     </span>
   );
   return (
@@ -397,10 +415,10 @@ function ProductCardPreview({ widget }) {
           marginBottom: 16,
         }}
       >
-        Product photo
+        {t("preview.productPhoto")}
       </div>
       <Text as="p" fontWeight="semibold">
-        Aviator Sunglasses
+        {t("preview.aviatorSunglasses")}
       </Text>
       <div style={{ color: "#6b7177", marginBottom: 16, fontSize: 14 }}>$89.00</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -413,7 +431,7 @@ function ProductCardPreview({ widget }) {
   );
 }
 
-function ModalPreview({ widget }) {
+function ModalPreview({ widget, t }) {
   const accentStart = widget.modalAccentColorStart || widget.buttonColorStart || "#5B8DEF";
   const accentEnd = widget.modalAccentColorEnd || widget.buttonColorEnd || "#9B7BF0";
   const accentText = widget.modalAccentTextColor || widget.buttonTextColor || "#FFFFFF";
@@ -471,7 +489,7 @@ function ModalPreview({ widget }) {
             background: hexToRgba(accentStart, 0.06),
           }}
         >
-          Drop a photo here
+          {t("preview.dropPhoto")}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <span
@@ -486,17 +504,17 @@ function ModalPreview({ widget }) {
               whiteSpace: "nowrap",
             }}
           >
-            Generate try-on
+            {t("preview.generateTryOn")}
           </span>
-          {widget.showBackButton && chip("Back to product")}
-          {widget.showTryAnotherButton && chip("Try another photo")}
+          {widget.showBackButton && chip(t("preview.backToProduct"))}
+          {widget.showTryAnotherButton && chip(t("preview.tryAnotherPhoto"))}
         </div>
       </div>
     </div>
   );
 }
 
-function CardBadgePreview({ widget }) {
+function CardBadgePreview({ widget, t }) {
   const startColor = widget.buttonColorStart || "#5B8DEF";
   const endColor = widget.buttonColorEnd || "#9B7BF0";
   const textColor = widget.buttonTextColor || "#FFFFFF";
@@ -519,7 +537,7 @@ function CardBadgePreview({ widget }) {
   if (!widget.cardButtonEnabled) {
     return (
       <Text as="p" tone="subdued">
-        Turn on the checkbox above to preview the mini-card button.
+        {t("preview.cardEnableFirst")}
       </Text>
     );
   }
@@ -529,46 +547,40 @@ function CardBadgePreview({ widget }) {
       {[0, 1].map((i) => (
         <div key={i} style={{ border: "1px solid #e1e3e5", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
           <div style={{ position: "relative", aspectRatio: "1 / 1", background: "linear-gradient(135deg,#f1f2f4,#e4e6e9)" }}>
-            {widget.cardButtonVariant === "corner" && <div style={{ position: "absolute", top: 8, right: 8, ...pillStyle }}>Try on</div>}
+            {widget.cardButtonVariant === "corner" && <div style={{ position: "absolute", top: 8, right: 8, ...pillStyle }}>{t("preview.tryOn")}</div>}
             {widget.cardButtonVariant === "drawer" && (
               <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, ...pillStyle, borderRadius: 0, justifyContent: "center", padding: "7px 0" }}>
-                Try on
+                {t("preview.tryOn")}
               </div>
             )}
             {widget.cardButtonVariant === "scrim" && (
               <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={pillStyle}>Try on</span>
+                <span style={pillStyle}>{t("preview.tryOn")}</span>
               </div>
             )}
           </div>
-          <div style={{ padding: "8px 10px", fontSize: 12, color: "#6b7177" }}>Product name</div>
+          <div style={{ padding: "8px 10px", fontSize: 12, color: "#6b7177" }}>{t("preview.productName")}</div>
         </div>
       ))}
     </div>
   );
 }
 
-function VisibilityPreview({ widget }) {
+function VisibilityPreview({ widget, t }) {
   if (widget.visibilityMode === "collection") {
     return (
       <Text as="p">
         {widget.visibilityCollectionTitle
-          ? <>Only products in <strong>{widget.visibilityCollectionTitle}</strong> will show the button.</>
-          : "Pick a collection to see it summarized here."}
+          ? t("preview.collectionOnlyPreview", { collection: widget.visibilityCollectionTitle })
+          : t("preview.pickCollectionFirst")}
       </Text>
     );
   }
   if (widget.visibilityMode === "products") {
     const count = widget.visibilityProductIds?.length || 0;
-    return (
-      <Text as="p">
-        {count > 0
-          ? `The button will only show on these ${count} product${count === 1 ? "" : "s"}.`
-          : "Pick at least one product — until then the button shows everywhere, same as \"All products\"."}
-      </Text>
-    );
+    return <Text as="p">{count > 0 ? t("preview.productsOnlyPreview", { count }) : t("preview.pickProductFirst")}</Text>;
   }
-  return <Text as="p">The button will show on every product page.</Text>;
+  return <Text as="p">{t("preview.allProducts")}</Text>;
 }
 
 // A hex TextField (so a merchant can still type/paste a code) plus a native
@@ -623,6 +635,9 @@ export default function Settings() {
   const isSubmitting = navigation.state === "submitting";
   const submittingIntent = navigation.formData?.get("intent");
 
+  const t = createTranslator(data.lang);
+  const [adminLang, setAdminLang] = useState(data.lang);
+
   const shopify = useAppBridge();
   const [enabled, setEnabled] = useState(data.enabled);
   const [widget, setWidget] = useState(data.widgetConfig);
@@ -662,23 +677,23 @@ export default function Settings() {
 
   const [tab, setTab] = useState(0);
   const tabs = [
-    { id: "button", content: "Button" },
-    { id: "modal", content: "Try-on window" },
-    { id: "card", content: "Mini-card button" },
-    { id: "visibility", content: "Which products" },
+    { id: "button", content: t("tab.button") },
+    { id: "modal", content: t("tab.modal") },
+    { id: "card", content: t("tab.card") },
+    { id: "visibility", content: t("tab.visibility") },
   ];
 
   return (
-    <Page title="Settings" backAction={{ url: "/app" }}>
+    <Page title={t("nav.settings")} backAction={{ url: "/app" }}>
       <Layout>
         <Layout.Section>
           {actionData?.ok === true && (
-            <Banner tone="success" title="Saved">
-              <p>Your settings were saved.</p>
+            <Banner tone="success" title={t("settings.savedTitle")}>
+              <p>{t("settings.savedBody")}</p>
             </Banner>
           )}
           {actionData?.ok === false && (
-            <Banner tone="critical" title="Couldn't save">
+            <Banner tone="critical" title={t("settings.saveFailedTitle")}>
               <p>{actionData.error}</p>
             </Banner>
           )}
@@ -687,28 +702,50 @@ export default function Settings() {
         <Layout.Section>
           <Card>
             <BlockStack gap="300">
+              <Text as="h2" variant="headingMd">
+                {t("settings.appLanguage")}
+              </Text>
+              <Text as="p" tone="subdued">
+                {t("settings.appLanguageHelp")}
+              </Text>
+              <Form method="post">
+                <input type="hidden" name="intent" value="setLanguage" />
+                <InlineStack gap="300" blockAlign="end">
+                  <div style={{ minWidth: 220 }}>
+                    <Select label="" labelHidden options={adminLanguageOptions()} name="lang" value={adminLang} onChange={setAdminLang} />
+                  </div>
+                  <Button submit loading={isSubmitting && submittingIntent === "setLanguage"}>
+                    {t("settings.saveLanguage")}
+                  </Button>
+                </InlineStack>
+              </Form>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="300">
               <InlineStack align="space-between" blockAlign="center">
                 <Text as="h2" variant="headingMd">
-                  Lumi Frame account
+                  {t("settings.lumiFrameAccount")}
                 </Text>
-                {data.connected && <Badge tone="success">Connected</Badge>}
+                {data.connected && <Badge tone="success">{t("settings.connectedBadge")}</Badge>}
               </InlineStack>
 
               {data.connected ? (
                 <Text as="p" tone="subdued">
-                  This store is connected to Lumi Frame. Nothing to paste — it was set up
-                  automatically.
+                  {t("settings.connectedBody")}
                 </Text>
               ) : (
                 <>
                   <Text as="p" tone="subdued">
-                    Sets up try-on for this store automatically — creates a Lumi Frame
-                    account and store behind the scenes. Nothing to copy or paste.
+                    {t("settings.connectBody")}
                   </Text>
                   <Form method="post">
                     <input type="hidden" name="intent" value="connect" />
                     <Button submit variant="primary" loading={isSubmitting && submittingIntent === "connect"}>
-                      Connect to Lumi Frame
+                      {t("settings.connectButton")}
                     </Button>
                   </Form>
                 </>
@@ -721,13 +758,11 @@ export default function Settings() {
           <Card>
             <BlockStack gap="200">
               <Text as="h2" variant="headingMd">
-                Plan
+                {t("settings.planTitle")}
               </Text>
-              <Text as="p">
-                {data.plan ? `Current plan: ${data.plan}` : "No active plan — the widget can't be enabled until you choose one."}
-              </Text>
+              <Text as="p">{data.plan ? t("settings.planCurrent", { plan: data.plan }) : t("settings.planNone")}</Text>
               <InlineStack>
-                <Button url="/app/billing">{data.plan ? "Manage plan" : "Choose a plan"}</Button>
+                <Button url="/app/billing">{data.plan ? t("settings.managePlan") : t("settings.choosePlan")}</Button>
               </InlineStack>
             </BlockStack>
           </Card>
@@ -743,20 +778,20 @@ export default function Settings() {
               <BlockStack gap="0">
                 <div style={{ padding: "16px 16px 0" }}>
                   <Text as="h2" variant="headingMd">
-                    Design and integration
+                    {t("settings.designTitle")}
                   </Text>
                   <Text as="p" tone="subdued">
-                    Configure how the "Try on" button looks on your site.
+                    {t("settings.designSubtitle")}
                   </Text>
                 </div>
 
                 <div style={{ padding: "16px 16px 0", maxWidth: 360 }}>
                   <Select
-                    label="Language"
-                    options={WIDGET_LANGUAGE_OPTIONS}
+                    label={t("settings.storefrontLanguage")}
+                    options={widgetLanguageOptions(t)}
                     value={widget.widgetLanguage}
                     onChange={set("widgetLanguage")}
-                    helpText="Auto-detect follows each shopper's own storefront language."
+                    helpText={t("settings.storefrontLanguageHelp")}
                   />
                 </div>
 
@@ -765,18 +800,18 @@ export default function Settings() {
                 <div style={{ padding: 16 }}>
                   {tab === 0 && (
                     <BlockStack gap="400">
-                      <TextField label="Button text" value={widget.buttonText} onChange={set("buttonText")} autoComplete="off" />
+                      <TextField label={t("settings.buttonText")} value={widget.buttonText} onChange={set("buttonText")} autoComplete="off" />
 
                       <Checkbox
-                        label="Automatically match my store's theme"
-                        helpText={`Copies the color and shape of your theme's own "Add to cart" button — the fields below are ignored while this is on.`}
+                        label={t("settings.autoMatchTheme")}
+                        helpText={t("settings.autoMatchThemeHelp")}
                         checked={widget.buttonAutoMatchTheme}
                         onChange={set("buttonAutoMatchTheme")}
                       />
 
                       <Select
-                        label="Fill"
-                        options={BUTTON_STYLE_OPTIONS}
+                        label={t("settings.fill")}
+                        options={buttonStyleOptions(t)}
                         value={widget.buttonStyle}
                         onChange={set("buttonStyle")}
                         disabled={widget.buttonAutoMatchTheme}
@@ -784,14 +819,14 @@ export default function Settings() {
 
                       <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                         <ColorField
-                          label={widget.buttonStyle === "gradient" ? "Color (gradient start)" : "Color"}
+                          label={widget.buttonStyle === "gradient" ? t("settings.colorGradientStart") : t("settings.color")}
                           value={widget.buttonColorStart}
                           onChange={set("buttonColorStart")}
                           disabled={widget.buttonAutoMatchTheme}
                         />
                         {widget.buttonStyle === "gradient" && (
                           <ColorField
-                            label="Color (gradient end)"
+                            label={t("settings.colorGradientEnd")}
                             value={widget.buttonColorEnd}
                             onChange={set("buttonColorEnd")}
                             disabled={widget.buttonAutoMatchTheme}
@@ -800,14 +835,14 @@ export default function Settings() {
                       </InlineGrid>
 
                       <ColorField
-                        label="Text color"
+                        label={t("settings.textColor")}
                         value={widget.buttonTextColor}
                         onChange={set("buttonTextColor")}
                         disabled={widget.buttonAutoMatchTheme}
                       />
 
                       <RangeSlider
-                        label={`Button size — ${widget.buttonSize}%`}
+                        label={t("settings.buttonSize", { pct: widget.buttonSize })}
                         min={70}
                         max={160}
                         value={widget.buttonSize}
@@ -815,7 +850,7 @@ export default function Settings() {
                         output
                       />
                       <RangeSlider
-                        label={`Button width — ${widget.buttonWidth}%`}
+                        label={t("settings.buttonWidth", { pct: widget.buttonWidth })}
                         min={100}
                         max={300}
                         value={widget.buttonWidth}
@@ -824,39 +859,39 @@ export default function Settings() {
                       />
 
                       <Select
-                        label="Shape"
-                        options={BUTTON_SHAPE_OPTIONS}
+                        label={t("settings.shape")}
+                        options={buttonShapeOptions(t)}
                         value={widget.buttonShape}
                         onChange={set("buttonShape")}
                         disabled={widget.buttonAutoMatchTheme}
                       />
                       <Select
-                        label="Animation"
-                        options={BUTTON_ANIMATION_OPTIONS}
+                        label={t("settings.animation")}
+                        options={buttonAnimationOptions(t)}
                         value={widget.buttonAnimation}
                         onChange={set("buttonAnimation")}
                       />
                       <Select
-                        label="Placement"
-                        options={BUTTON_POSITION_OPTIONS}
+                        label={t("settings.placement")}
+                        options={buttonPositionOptions(t)}
                         value={widget.buttonPosition}
                         onChange={set("buttonPosition")}
                       />
-                      <Checkbox label="Glow effect" checked={widget.buttonGlow} onChange={set("buttonGlow")} />
+                      <Checkbox label={t("settings.glowEffect")} checked={widget.buttonGlow} onChange={set("buttonGlow")} />
                     </BlockStack>
                   )}
 
                   {tab === 1 && (
                     <BlockStack gap="400">
                       <TextField
-                        label="Heading"
+                        label={t("settings.heading")}
                         value={widget.modalHeading}
                         onChange={set("modalHeading")}
                         autoComplete="off"
                         placeholder="Virtual Try-On"
                       />
                       <TextField
-                        label="Subheading"
+                        label={t("settings.subheading")}
                         value={widget.modalSubheading}
                         onChange={set("modalSubheading")}
                         autoComplete="off"
@@ -864,51 +899,51 @@ export default function Settings() {
                       />
                       <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                         <ColorField
-                          label="Accent color (start)"
+                          label={t("settings.accentColorStart")}
                           value={widget.modalAccentColorStart}
                           onChange={set("modalAccentColorStart")}
-                          helpText="Leave blank to reuse the button's colors."
+                          helpText={t("settings.accentColorStartHelp")}
                           fallback={widget.buttonColorStart}
                         />
                         <ColorField
-                          label="Accent color (end)"
+                          label={t("settings.accentColorEnd")}
                           value={widget.modalAccentColorEnd}
                           onChange={set("modalAccentColorEnd")}
                           fallback={widget.buttonColorEnd}
                         />
                       </InlineGrid>
                       <ColorField
-                        label="Accent text color"
+                        label={t("settings.accentTextColor")}
                         value={widget.modalAccentTextColor}
                         onChange={set("modalAccentTextColor")}
                         fallback={widget.buttonTextColor}
                       />
-                      <Select label="Layout" options={MODAL_LAYOUT_OPTIONS} value={widget.modalLayout} onChange={set("modalLayout")} />
+                      <Select label={t("settings.layout")} options={modalLayoutOptions(t)} value={widget.modalLayout} onChange={set("modalLayout")} />
                       <Checkbox
-                        label='Show "Try another photo" button'
+                        label={t("settings.showTryAnother")}
                         checked={widget.showTryAnotherButton}
                         onChange={set("showTryAnotherButton")}
                       />
-                      <Checkbox label="Show back button" checked={widget.showBackButton} onChange={set("showBackButton")} />
+                      <Checkbox label={t("settings.showBack")} checked={widget.showBackButton} onChange={set("showBackButton")} />
                     </BlockStack>
                   )}
 
                   {tab === 2 && (
                     <BlockStack gap="400">
                       <Checkbox
-                        label="Also show a Try On button on product cards in your catalog/collection pages"
+                        label={t("settings.cardEnable")}
                         checked={widget.cardButtonEnabled}
                         onChange={set("cardButtonEnabled")}
                       />
                       <Select
-                        label="Card button style"
-                        options={CARD_VARIANT_OPTIONS}
+                        label={t("settings.cardStyle")}
+                        options={cardVariantOptions(t)}
                         value={widget.cardButtonVariant}
                         onChange={set("cardButtonVariant")}
                         disabled={!widget.cardButtonEnabled}
                       />
                       <Text as="p" tone="subdued">
-                        Reuses the button colors/style set on the Button tab.
+                        {t("settings.cardReuse")}
                       </Text>
                     </BlockStack>
                   )}
@@ -916,8 +951,8 @@ export default function Settings() {
                   {tab === 3 && (
                     <BlockStack gap="400">
                       <Select
-                        label="Show the button on"
-                        options={VISIBILITY_MODE_OPTIONS}
+                        label={t("settings.showOn")}
+                        options={visibilityModeOptions(t)}
                         value={widget.visibilityMode}
                         onChange={set("visibilityMode")}
                       />
@@ -926,12 +961,12 @@ export default function Settings() {
                         <BlockStack gap="200">
                           <InlineStack gap="200" blockAlign="center">
                             <Button onClick={pickCollection}>
-                              {widget.visibilityCollectionId ? "Change collection" : "Choose collection"}
+                              {widget.visibilityCollectionId ? t("settings.changeCollection") : t("settings.chooseCollection")}
                             </Button>
                             {widget.visibilityCollectionTitle && <Badge tone="info">{widget.visibilityCollectionTitle}</Badge>}
                           </InlineStack>
                           <Text as="p" tone="subdued">
-                            Only products in this collection will show the "Try on" button.
+                            {t("settings.collectionOnly")}
                           </Text>
                         </BlockStack>
                       )}
@@ -939,7 +974,7 @@ export default function Settings() {
                       {widget.visibilityMode === "products" && (
                         <BlockStack gap="200">
                           <Button onClick={pickProducts}>
-                            {widget.visibilityProductIds?.length ? "Change products" : "Choose products"}
+                            {widget.visibilityProductIds?.length ? t("settings.changeProducts") : t("settings.chooseProducts")}
                           </Button>
                           {widget.visibilityProductTitles?.length > 0 && (
                             <InlineStack gap="150" wrap>
@@ -951,17 +986,14 @@ export default function Settings() {
                             </InlineStack>
                           )}
                           <Text as="p" tone="subdued">
-                            Only the products picked here will show the "Try on" button — every other
-                            product on your site keeps it hidden.
+                            {t("settings.productsOnly")}
                           </Text>
                         </BlockStack>
                       )}
 
                       {widget.visibilityMode !== "all" && (
                         <Text as="p" tone="subdued">
-                          Note: this only controls the button on the product page. The mini-card
-                          button on catalog pages (previous tab) doesn't filter by product yet —
-                          ask if you'd like that added too.
+                          {t("settings.visibilityCardNote")}
                         </Text>
                       )}
                     </BlockStack>
@@ -971,14 +1003,14 @@ export default function Settings() {
                 <div style={{ padding: 16, borderTop: "1px solid var(--p-color-border-secondary, #e1e3e5)" }}>
                   <BlockStack gap="300">
                     <Checkbox
-                      label="Enable the try-on widget on your storefront"
+                      label={t("settings.enableWidget")}
                       checked={enabled}
                       onChange={setEnabled}
                       disabled={!data.connected}
                     />
                     <InlineStack align="end">
                       <Button submit variant="primary" loading={isSubmitting && submittingIntent === "save"}>
-                        Save
+                        {t("settings.save")}
                       </Button>
                     </InlineStack>
                   </BlockStack>
@@ -993,16 +1025,15 @@ export default function Settings() {
             <Card>
               <BlockStack gap="300">
                 <Text as="h2" variant="headingMd">
-                  Live preview
+                  {t("settings.livePreview")}
                 </Text>
                 <Text as="p" tone="subdued">
-                  Updates as you change settings on the left — not saved yet, and not
-                  what shoppers see until you press Save.
+                  {t("settings.livePreviewHelp")}
                 </Text>
-                {tab === 0 && <ProductCardPreview widget={widget} />}
-                {tab === 1 && <ModalPreview widget={widget} />}
-                {tab === 2 && <CardBadgePreview widget={widget} />}
-                {tab === 3 && <VisibilityPreview widget={widget} />}
+                {tab === 0 && <ProductCardPreview widget={widget} t={t} />}
+                {tab === 1 && <ModalPreview widget={widget} t={t} />}
+                {tab === 2 && <CardBadgePreview widget={widget} t={t} />}
+                {tab === 3 && <VisibilityPreview widget={widget} t={t} />}
               </BlockStack>
             </Card>
           </div>
@@ -1012,13 +1043,9 @@ export default function Settings() {
           <Card>
             <BlockStack gap="200">
               <Text as="h2" variant="headingMd">
-                Add the button to your theme
+                {t("settings.addToTheme")}
               </Text>
-              <Text as="p">
-                Open the theme editor → Product template → Add block → look for
-                "AI Glasses Try-On", then place it near the price or Add to cart
-                button.
-              </Text>
+              <Text as="p">{t("settings.addToThemeBody")}</Text>
             </BlockStack>
           </Card>
         </Layout.Section>

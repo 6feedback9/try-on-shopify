@@ -182,6 +182,13 @@ const en = {
   "err.connectFirst": "Connect to Lumi Frame before enabling the widget.",
   "err.choosePlanFirst": "Choose a plan on the Billing page before enabling the widget.",
   "err.couldNotConnect": "Could not connect to Lumi Frame: {error}",
+
+  "billing.unavailableTitle": "Billing isn't available yet",
+  "billing.unavailableBody":
+    "Shopify only opens up its Billing API to a Public app once it's been reviewed and approved for the App Store — this store can't subscribe to a plan until then. The widget itself keeps working in the meantime; nothing here is broken, it's a normal step before launch.",
+  "billing.checkoutFailedTitle": "Couldn't start checkout",
+  "err.billingUnavailable":
+    "Shopify billing isn't available for this app yet — it only opens up after the app has been reviewed for the App Store.",
 };
 
 const uk = {
@@ -347,6 +354,13 @@ const uk = {
   "err.connectFirst": "Підключіться до Lumi Frame перед увімкненням віджета.",
   "err.choosePlanFirst": "Оберіть тариф на сторінці «Оплата», перш ніж вмикати віджет.",
   "err.couldNotConnect": "Не вдалося підключитися до Lumi Frame: {error}",
+
+  "billing.unavailableTitle": "Оплата поки що недоступна",
+  "billing.unavailableBody":
+    "Shopify відкриває Billing API для публічного додатку лише після проходження ревʼю App Store — до того цей магазин не може оформити тариф. Сам віджет тим часом продовжує працювати; нічого не зламано, це звичайний етап перед запуском.",
+  "billing.checkoutFailedTitle": "Не вдалося почати оформлення",
+  "err.billingUnavailable":
+    "Оплата Shopify для цього додатку поки що недоступна — вона відкриється після проходження ревʼю App Store.",
 };
 
 const pl = {
@@ -512,6 +526,13 @@ const pl = {
   "err.connectFirst": "Połącz się z Lumi Frame, zanim włączysz widżet.",
   "err.choosePlanFirst": "Wybierz plan na stronie Płatności, zanim włączysz widżet.",
   "err.couldNotConnect": "Nie udało się połączyć z Lumi Frame: {error}",
+
+  "billing.unavailableTitle": "Płatności nie są jeszcze dostępne",
+  "billing.unavailableBody":
+    "Shopify udostępnia Billing API aplikacji publicznej dopiero po przejściu weryfikacji do App Store — do tego czasu ten sklep nie może wykupić planu. Sam widżet nadal działa w tym czasie; nic tu nie jest zepsute, to normalny etap przed uruchomieniem.",
+  "billing.checkoutFailedTitle": "Nie udało się rozpocząć płatności",
+  "err.billingUnavailable":
+    "Rozliczenia Shopify nie są jeszcze dostępne dla tej aplikacji — otworzą się po przejściu weryfikacji do App Store.",
 };
 
 const cs = {
@@ -677,6 +698,13 @@ const cs = {
   "err.connectFirst": "Před zapnutím widgetu se připojte k Lumi Frame.",
   "err.choosePlanFirst": "Před zapnutím widgetu vyberte plán na stránce Fakturace.",
   "err.couldNotConnect": "Nepodařilo se připojit k Lumi Frame: {error}",
+
+  "billing.unavailableTitle": "Fakturace zatím není dostupná",
+  "billing.unavailableBody":
+    "Shopify zpřístupní Billing API veřejné aplikaci až po schválení pro App Store — do té doby si tento obchod nemůže vybrat plán. Widget samotný mezitím dál funguje; nic zde není rozbité, jde o běžný krok před spuštěním.",
+  "billing.checkoutFailedTitle": "Platbu se nepodařilo zahájit",
+  "err.billingUnavailable":
+    "Fakturace Shopify pro tuto aplikaci zatím není dostupná — zpřístupní se po schválení pro App Store.",
 };
 
 const de = {
@@ -842,6 +870,13 @@ const de = {
   "err.connectFirst": "Verbinden Sie sich mit Lumi Frame, bevor Sie das Widget aktivieren.",
   "err.choosePlanFirst": "Wählen Sie auf der Abrechnungsseite einen Plan, bevor Sie das Widget aktivieren.",
   "err.couldNotConnect": "Verbindung zu Lumi Frame fehlgeschlagen: {error}",
+
+  "billing.unavailableTitle": "Abrechnung noch nicht verfügbar",
+  "billing.unavailableBody":
+    "Shopify öffnet die Billing-API für eine öffentliche App erst nach erfolgreicher App-Store-Prüfung — bis dahin kann dieser Shop keinen Plan abonnieren. Das Widget selbst funktioniert in der Zwischenzeit weiter; hier ist nichts kaputt, das ist ein normaler Schritt vor dem Launch.",
+  "billing.checkoutFailedTitle": "Bezahlvorgang konnte nicht gestartet werden",
+  "err.billingUnavailable":
+    "Die Shopify-Abrechnung ist für diese App noch nicht verfügbar — sie öffnet sich nach erfolgreicher App-Store-Prüfung.",
 };
 
 const dictionaries = { en, uk, pl, cs, de };

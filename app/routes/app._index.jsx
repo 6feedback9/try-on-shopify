@@ -13,6 +13,7 @@ import {
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { getFreshToken, getAnalytics } from "../lumiframe.server";
+import { createTranslator } from "../i18n";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -25,26 +26,23 @@ export const loader = async ({ request }) => {
     if (token) stats = await getAnalytics(token, "30d");
   }
 
-  return json({ connected, stats });
+  return json({ connected, stats, lang: settings?.adminLanguage || "en" });
 };
 
 export default function Index() {
-  const { connected, stats } = useLoaderData();
+  const { connected, stats, lang } = useLoaderData();
+  const t = createTranslator(lang);
 
   if (!connected) {
     return (
       <Page title="AI Glasses Try-On">
         <Layout>
           <Layout.Section>
-            <Banner title="Connect to Lumi Frame to go live" tone="warning">
-              <p>
-                This app forwards try-on requests to Lumi Frame — it doesn't run its own
-                AI. Go to Settings to connect (automatic, nothing to paste) and turn the
-                storefront widget on.
-              </p>
+            <Banner title={t("dashboard.connectBannerTitle")} tone="warning">
+              <p>{t("dashboard.connectBannerBody")}</p>
               <div style={{ marginTop: 12 }}>
                 <Button url="/app/settings" variant="primary">
-                  Go to Settings
+                  {t("dashboard.goToSettings")}
                 </Button>
               </div>
             </Banner>
@@ -57,15 +55,15 @@ export default function Index() {
   return (
     <Page
       title="AI Glasses Try-On"
-      subtitle="Last 30 days"
-      secondaryActions={[{ content: "Settings", url: "/app/settings" }]}
+      subtitle={t("dashboard.subtitle")}
+      secondaryActions={[{ content: t("nav.settings"), url: "/app/settings" }]}
     >
       <Layout>
         <Layout.Section>
           <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
-            <StatCard label="Try-ons" value={stats?.totalTryOns ?? 0} />
-            <StatCard label="Unique visitors" value={stats?.uniqueVisitors ?? 0} />
-            <StatCard label="Orders attributed" value={stats?.orders ?? 0} />
+            <StatCard label={t("dashboard.statTryOns")} value={stats?.totalTryOns ?? 0} />
+            <StatCard label={t("dashboard.statUniqueVisitors")} value={stats?.uniqueVisitors ?? 0} />
+            <StatCard label={t("dashboard.statOrdersAttributed")} value={stats?.orders ?? 0} />
           </InlineGrid>
         </Layout.Section>
 
@@ -73,18 +71,17 @@ export default function Index() {
           <Card>
             <BlockStack gap="200">
               <Text as="h2" variant="headingMd">
-                Top products
+                {t("dashboard.topProducts")}
               </Text>
               {stats?.topProducts?.length ? (
                 stats.topProducts.map((p) => (
                   <Text as="p" key={p.externalProductId}>
-                    {p.title} — {p.tryOns} try-ons
+                    {t("dashboard.topProductsRow", { title: p.title, tryOns: p.tryOns })}
                   </Text>
                 ))
               ) : (
                 <Text as="p" tone="subdued">
-                  No try-ons yet. Add the "AI Glasses Try-On" block to your product
-                  template from the theme editor to start collecting data.
+                  {t("dashboard.noTryOnsYet")}
                 </Text>
               )}
             </BlockStack>

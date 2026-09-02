@@ -66,6 +66,11 @@ model ShopSettings {
   // kept in sync by app/routes/app.billing.callback.jsx and the
   // app_subscriptions/update webhook. Null = no active paid plan.
   plan            String?
+  // Language THIS APP'S OWN admin screens (Dashboard/Settings/Billing) are
+  // shown in for the merchant using it — see app/i18n.js. Unrelated to the
+  // storefront widget's language (widgetConfig.widgetLanguage, decided per
+  // shopper, not per merchant).
+  adminLanguage   String   @default("en")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

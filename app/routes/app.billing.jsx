@@ -14,6 +14,7 @@ import {
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { ALL_PLANS, PLAN_DETAILS, TRIAL_DAYS } from "../billing";
+import { createTranslator } from "../i18n";
 
 // If a session row exists for this shop but has no access token (e.g. left
 // over from an app that was deleted and recreated in the Partner
@@ -32,9 +33,11 @@ export const loader = async ({ request }) => {
   // billing lives on the object authenticate.admin() returns for THIS
   // request — there is no standalone shopify.billing to import.
   const { session, billing } = await authenticate.admin(request);
+  const settings = await prisma.shopSettings.findUnique({ where: { shop: session.shop }, select: { adminLanguage: true } });
+  const lang = settings?.adminLanguage || "en";
 
   if (await clearStaleSessionIfNeeded(session)) {
-    return json({ activePlan: null, needsReload: true });
+    return json({ activePlan: null, needsReload: true, lang });
   }
 
   // Shopify's Billing API 403s outright for any Public-distribution app
@@ -47,7 +50,7 @@ export const loader = async ({ request }) => {
     billingCheck = await billing.check({ plans: ALL_PLANS, isTest: process.env.NODE_ENV !== "production" });
   } catch (err) {
     console.error("[billing] billing.check() failed:", err);
-    return json({ activePlan: null, needsReload: false, billingUnavailable: true });
+    return json({ activePlan: null, needsReload: false, billingUnavailable: true, lang });
   }
   const active = billingCheck.appSubscriptions?.[0]?.name || null;
 
@@ -62,7 +65,7 @@ export const loader = async ({ request }) => {
       .catch(() => {});
   }
 
-  return json({ activePlan: active, needsReload: false, billingUnavailable: false });
+  return json({ activePlan: active, needsReload: false, billingUnavailable: false, lang });
 };
 
 export const action = async ({ request }) => {
@@ -78,6 +81,9 @@ export const action = async ({ request }) => {
     return json({ error: "Session was stale and has been reset — please fully reload the page and try again." }, { status: 409 });
   }
 
+  const settings = await prisma.shopSettings.findUnique({ where: { shop: session.shop }, select: { adminLanguage: true } });
+  const t = createTranslator(settings?.adminLanguage || "en");
+
   try {
     // billing.request() throws a redirect to Shopify's hosted confirmation
     // page on success, so nothing after this line normally runs.
@@ -91,30 +97,24 @@ export const action = async ({ request }) => {
     // range — let that one through instead of treating it as a failure.
     if (err?.status >= 300 && err?.status < 400) throw err;
     console.error("[billing] billing.request() failed:", err);
-    return json(
-      { error: "Shopify billing isn't available for this app yet — it only opens up after the app has been reviewed for the App Store." },
-      { status: 503 }
-    );
+    return json({ error: t("err.billingUnavailable") }, { status: 503 });
   }
 
   return redirect("/app/billing");
 };
 
 export default function Billing() {
-  const { activePlan, needsReload, billingUnavailable } = useLoaderData();
+  const { activePlan, needsReload, billingUnavailable, lang } = useLoaderData();
   const actionData = useActionData();
+  const t = createTranslator(lang);
 
   if (needsReload) {
     return (
-      <Page title="Billing" backAction={{ url: "/app" }}>
+      <Page title={t("nav.billing")} backAction={{ url: "/app" }}>
         <Layout>
           <Layout.Section>
-            <Banner tone="warning" title="One-time reset needed">
-              <p>
-                Found a stale session for this store and cleared it. Please fully
-                reload this page (Cmd/Ctrl+R, not just clicking a link) so Shopify
-                re-authenticates the app from scratch, then try again.
-              </p>
+            <Banner tone="warning" title={t("billing.needsReloadTitle")}>
+              <p>{t("billing.needsReloadBody")}</p>
             </Banner>
           </Layout.Section>
         </Layout>
@@ -123,35 +123,27 @@ export default function Billing() {
   }
 
   return (
-    <Page title="Billing" backAction={{ url: "/app" }}>
+    <Page title={t("nav.billing")} backAction={{ url: "/app" }}>
       <Layout>
         {billingUnavailable && (
           <Layout.Section>
-            <Banner tone="warning" title="Billing isn't available yet">
-              <p>
-                Shopify only opens up its Billing API to a Public app once it's been
-                reviewed and approved for the App Store — this store can't subscribe to
-                a plan until then. The widget itself keeps working in the meantime;
-                nothing here is broken, it's a normal step before launch.
-              </p>
+            <Banner tone="warning" title={t("billing.unavailableTitle")}>
+              <p>{t("billing.unavailableBody")}</p>
             </Banner>
           </Layout.Section>
         )}
 
         {actionData?.error && (
           <Layout.Section>
-            <Banner tone="critical" title="Couldn't start checkout">
+            <Banner tone="critical" title={t("billing.checkoutFailedTitle")}>
               <p>{actionData.error}</p>
             </Banner>
           </Layout.Section>
         )}
 
         <Layout.Section>
-          <Banner tone="info" title={`${TRIAL_DAYS}-day free trial on every plan`}>
-            <p>
-              Prices here are placeholders for launch — edit them in{" "}
-              <code>app/billing.js</code> before submitting to the App Store.
-            </p>
+          <Banner tone="info" title={t("billing.trialBanner", { days: TRIAL_DAYS })}>
+            <p>{t("billing.trialBannerBody")}</p>
           </Banner>
         </Layout.Section>
 
@@ -167,23 +159,23 @@ export default function Billing() {
                       <Text as="h2" variant="headingLg">
                         {plan}
                       </Text>
-                      {isActive && <Badge tone="success">Current plan</Badge>}
+                      {isActive && <Badge tone="success">{t("billing.currentPlanBadge")}</Badge>}
                     </InlineGrid>
                     <Text as="p" variant="heading2xl">
                       ${details.price}
                       <Text as="span" tone="subdued">
                         {" "}
-                        / month
+                        {t("billing.perMonth")}
                       </Text>
                     </Text>
                     <Text as="p" tone="subdued">
                       {details.blurb}
                     </Text>
-                    <Text as="p">Up to {details.quota} try-ons / month</Text>
+                    <Text as="p">{t("billing.upToQuota", { quota: details.quota })}</Text>
                     <Form method="post">
                       <input type="hidden" name="plan" value={plan} />
                       <Button submit variant={isActive ? "secondary" : "primary"} disabled={isActive || billingUnavailable} fullWidth>
-                        {isActive ? "Active" : "Choose plan"}
+                        {isActive ? t("billing.active") : t("billing.choosePlan")}
                       </Button>
                     </Form>
                   </BlockStack>
@@ -197,14 +189,9 @@ export default function Billing() {
           <Card>
             <BlockStack gap="200">
               <Text as="h2" variant="headingMd">
-                One manual step after subscribing
+                {t("billing.manualStepTitle")}
               </Text>
-              <Text as="p">
-                Shopify billing controls what the merchant pays here — it doesn't touch
-                Lumi Frame's own quota. Lumi Frame has no self-serve plan API; after a
-                plan change, assign the matching plan to this merchant's Lumi Frame
-                account yourself, in Lumi Frame's own admin console.
-              </Text>
+              <Text as="p">{t("billing.manualStepBody")}</Text>
             </BlockStack>
           </Card>
         </Layout.Section>
