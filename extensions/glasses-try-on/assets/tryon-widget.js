@@ -48,12 +48,30 @@
     return SUPPORTED_LOCALES.includes(raw) ? raw : "en";
   }
 
+  // Lumi Frame's API requires a genuine absolute URL for both
+  // productUrl/productImageUrl and rejects the whole request otherwise
+  // ("Invalid request body", confirmed on a real store) — a
+  // protocol-relative CDN address ("//cdn.shopify.com/...", what
+  // Liquid's image_url filter returns) or a site-relative path
+  // ("/products/handle", what product.url returns) both fail that. The
+  // Liquid block itself now builds absolute values already; this is
+  // defense-in-depth for any other source (a different theme, a value
+  // read straight off the DOM elsewhere).
+  function toAbsoluteUrl(u) {
+    if (!u) return u;
+    const s = String(u).trim();
+    if (!s) return s;
+    if (s.startsWith("//")) return "https:" + s;
+    if (s.startsWith("/")) return window.location.origin + s;
+    return s;
+  }
+
   function readProduct(root) {
     return {
       productId: root.dataset.productId || "",
       productTitle: root.dataset.productTitle || document.title,
-      productUrl: root.dataset.productUrl || window.location.href,
-      productImageUrl: root.dataset.productImage || "",
+      productUrl: toAbsoluteUrl(root.dataset.productUrl) || window.location.href,
+      productImageUrl: toAbsoluteUrl(root.dataset.productImage) || "",
       price: root.dataset.price ? Number(root.dataset.price) : undefined,
       currency: root.dataset.currency || undefined,
       sku: root.dataset.sku || undefined,
@@ -194,10 +212,9 @@
       firstSrcsetUrl(img.getAttribute("data-srcset")),
       firstSrcsetUrl(img.getAttribute("srcset")),
     ];
-    for (let c of candidates) {
-      if (!c) continue;
-      c = c.trim();
-      if (c.startsWith("//")) c = "https:" + c;
+    for (const raw of candidates) {
+      if (!raw) continue;
+      const c = toAbsoluteUrl(raw);
       if (/^https?:\/\//.test(c)) return c;
     }
     return "";
