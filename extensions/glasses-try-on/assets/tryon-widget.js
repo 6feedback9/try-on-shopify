@@ -232,35 +232,84 @@
   // timing, so this watches for them arriving rather than guessing a delay.
   function keepCardButtonsClickable() {
     const CARD_BUTTON_SELECTOR = ".lumiframe-card-badge, .lumiframe-card-drawer, .lumiframe-card-scrim";
-    const wiredLinks = new WeakSet();
 
-    const process = () => {
-      document.querySelectorAll(CARD_BUTTON_SELECTOR).forEach((badge) => {
-        badge.style.zIndex = "2147483647"; // still helps on themes where this alone is enough
-        const wrap = badge.closest(".lumiframe-card-wrap");
-        const img = wrap && wrap.querySelector("img");
-        const data = img && cardDataByImage.get(img);
-        if (!data || wiredLinks.has(data.link)) return;
-        wiredLinks.add(data.link);
-
-        data.link.addEventListener(
-          "click",
-          (event) => {
-            const r = badge.getBoundingClientRect();
-            if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) return;
-            event.preventDefault();
-            event.stopPropagation();
-            if (window.TryOn) window.TryOn.open(data.product);
-          },
-          true
-        );
+    // Still helps on any theme where z-index alone is enough.
+    const boostZIndex = () => {
+      document.querySelectorAll(CARD_BUTTON_SELECTOR).forEach((el) => {
+        el.style.zIndex = "2147483647";
       });
     };
-
-    process();
-    const observer = new MutationObserver(process);
+    boostZIndex();
+    const observer = new MutationObserver(boostZIndex);
     observer.observe(document.body, { childList: true, subtree: true });
     setTimeout(() => observer.disconnect(), 3000); // one-shot injection — nothing new arrives after this
+
+    // One delegated, capture-phase listener on the document, rather than
+    // wiring each overlay link up front: this re-checks live badge
+    // positions at the moment of each click instead of relying on
+    // references captured earlier (which would go stale if the theme
+    // re-renders card markup, and depends on correctly having matched the
+    // right link to the right badge ahead of time — a previous version of
+    // this exact approach turned out not to reliably attach, confirmed on
+    // a real store via getEventListeners()). Being on `document` in the
+    // capture phase means this runs before the click reaches whatever
+    // element actually received it (typically the overlay link), so its
+    // own default navigation is what gets prevented.
+    document.addEventListener(
+      "click",
+      (event) => {
+        for (const badge of document.querySelectorAll(CARD_BUTTON_SELECTOR)) {
+          const r = badge.getBoundingClientRect();
+          if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) continue;
+          const wrap = badge.closest(".lumiframe-card-wrap");
+          const img = wrap && wrap.querySelector("img");
+          const data = img && cardDataByImage.get(img);
+          if (!data) continue;
+          event.preventDefault();
+          event.stopPropagation();
+          if (window.TryOn) window.TryOn.open(data.product);
+          return;
+        }
+      },
+      true
+    );
+  }
+
+  // Same overlay problem as the click, but for the hover-to-expand look
+  // ("corner" variant): the SDK's own CSS is `.lumiframe-card-wrap:hover
+  // .lumiframe-card-badge { width: 130px; ... }`, which never triggers
+  // when the overlay link owns hit-testing over that area — the wrap
+  // never registers as ":hover" in the first place. Forced via the same
+  // geometric, delegated approach as the click fix: a mousemove listener
+  // adds a class (with matching !important rules injected once) whenever
+  // the cursor is over a badge's actual rect, regardless of what element
+  // is nominally "under" the pointer for hit-testing.
+  function keepCardButtonsHoverable() {
+    if (!document.getElementById("agto-card-hover-style")) {
+      const style = document.createElement("style");
+      style.id = "agto-card-hover-style";
+      style.textContent = `
+        .lumiframe-card-badge.agto-hover { width: 130px !important; border-radius: 15px !important; }
+        .lumiframe-card-badge.agto-hover span { display: inline !important; }
+      `;
+      document.head.appendChild(style);
+    }
+
+    let hovered = null;
+    document.addEventListener("mousemove", (event) => {
+      let hit = null;
+      for (const badge of document.querySelectorAll(".lumiframe-card-badge")) {
+        const r = badge.getBoundingClientRect();
+        if (event.clientX >= r.left && event.clientX <= r.right && event.clientY >= r.top && event.clientY <= r.bottom) {
+          hit = badge;
+          break;
+        }
+      }
+      if (hit === hovered) return;
+      if (hovered) hovered.classList.remove("agto-hover");
+      if (hit) hit.classList.add("agto-hover");
+      hovered = hit;
+    });
   }
 
   function loadScript(src) {
@@ -324,6 +373,7 @@
     if (widgetConfig.cardButtonEnabled) {
       markCardsForFallbackDetection(widgetConfig);
       keepCardButtonsClickable();
+      keepCardButtonsHoverable();
     }
 
     // Button/modal/card appearance, as saved on this app's Settings page
