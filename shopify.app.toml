@@ -7,7 +7,7 @@
 client_id = "40062f0e1e7d715a2012f254b3adc1e9"
 name = "AI Glasses Try-On"
 handle = "ai-glasses-try-on"
-application_url = "https://try-on-shopify.onrender.com"
+application_url = "https://ai-glasses-tryon.onrender.com"
 embedded = true
 
 [access_scopes]
@@ -17,7 +17,7 @@ scopes = "read_products"
 # Only one is actually used: authPathPrefix: "/auth" in shopify.server.js
 # means the OAuth callback route this app serves is exactly /auth/callback.
 redirect_urls = [
-  "https://try-on-shopify.onrender.com/auth/callback"
+  "https://ai-glasses-tryon.onrender.com/auth/callback"
 ]
 
 [webhooks]
@@ -47,7 +47,7 @@ api_version = "2025-01"
 # with a verified signature — the only thing it returns is a public
 # storeId. The actual try-on flow talks directly to Lumi Frame's own API
 # from the browser (see README.md); nothing secret ever passes through here.
-url = "https://try-on-shopify.onrender.com/apps/tryon"
+url = "https://ai-glasses-tryon.onrender.com/apps/tryon"
 subpath = "tryon"
 prefix = "apps"
 
