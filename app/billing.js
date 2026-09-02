@@ -19,9 +19,9 @@ export const ALL_PLANS = [PLAN_STARTER, PLAN_BRAND, PLAN_AGENCY];
 // merchant subscribes here, go assign the matching plan there (see `quota`
 // below for the numbers to use). This app has no way to do that for you.
 export const PLAN_DETAILS = {
-  [PLAN_STARTER]: { price: 9.99, quota: 100, blurb: "For a single small storefront getting started with AI try-on." },
-  [PLAN_BRAND]: { price: 29.99, quota: 500, blurb: "For a growing store that wants higher volume and priority support." },
-  [PLAN_AGENCY]: { price: 79.99, quota: 2000, blurb: "For high-traffic stores or agencies running try-on across catalogs." },
+  [PLAN_STARTER]: { price: 29, quota: 150, blurb: "For a single small storefront getting started with AI try-on." },
+  [PLAN_BRAND]: { price: 99, quota: 750, blurb: "For a growing store that wants higher volume and priority support." },
+  [PLAN_AGENCY]: { price: 179, quota: 2000, blurb: "For high-traffic stores or agencies running try-on across catalogs." },
 };
 
 // 7-day free trial on every plan (temporary, for testing — revisit before

@@ -1,5 +1,5 @@
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, Form } from "@remix-run/react";
+import { useLoaderData, useActionData, Form } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -37,7 +37,18 @@ export const loader = async ({ request }) => {
     return json({ activePlan: null, needsReload: true });
   }
 
-  const billingCheck = await billing.check({ plans: ALL_PLANS, isTest: process.env.NODE_ENV !== "production" });
+  // Shopify's Billing API 403s outright for any Public-distribution app
+  // that hasn't been through App Store review yet — a platform limitation,
+  // not something fixable in this app's own code. Uncaught, that crashed
+  // this whole page ("Application Error") on a real store; caught here so
+  // it explains itself instead.
+  let billingCheck;
+  try {
+    billingCheck = await billing.check({ plans: ALL_PLANS, isTest: process.env.NODE_ENV !== "production" });
+  } catch (err) {
+    console.error("[billing] billing.check() failed:", err);
+    return json({ activePlan: null, needsReload: false, billingUnavailable: true });
+  }
   const active = billingCheck.appSubscriptions?.[0]?.name || null;
 
   // Keep our own copy in sync in case a webhook hasn't landed yet.
@@ -51,7 +62,7 @@ export const loader = async ({ request }) => {
       .catch(() => {});
   }
 
-  return json({ activePlan: active, needsReload: false });
+  return json({ activePlan: active, needsReload: false, billingUnavailable: false });
 };
 
 export const action = async ({ request }) => {
@@ -67,19 +78,31 @@ export const action = async ({ request }) => {
     return json({ error: "Session was stale and has been reset — please fully reload the page and try again." }, { status: 409 });
   }
 
-  // billing.request() throws a redirect to Shopify's hosted confirmation
-  // page, so nothing after this line normally runs.
-  await billing.request({
-    plan,
-    isTest: process.env.NODE_ENV !== "production",
-    returnUrl: `${process.env.SHOPIFY_APP_URL || ""}/app/billing/callback`,
-  });
+  try {
+    // billing.request() throws a redirect to Shopify's hosted confirmation
+    // page on success, so nothing after this line normally runs.
+    await billing.request({
+      plan,
+      isTest: process.env.NODE_ENV !== "production",
+      returnUrl: `${process.env.SHOPIFY_APP_URL || ""}/app/billing/callback`,
+    });
+  } catch (err) {
+    // A thrown redirect (the success path) has a `status` in the 3xx
+    // range — let that one through instead of treating it as a failure.
+    if (err?.status >= 300 && err?.status < 400) throw err;
+    console.error("[billing] billing.request() failed:", err);
+    return json(
+      { error: "Shopify billing isn't available for this app yet — it only opens up after the app has been reviewed for the App Store." },
+      { status: 503 }
+    );
+  }
 
   return redirect("/app/billing");
 };
 
 export default function Billing() {
-  const { activePlan, needsReload } = useLoaderData();
+  const { activePlan, needsReload, billingUnavailable } = useLoaderData();
+  const actionData = useActionData();
 
   if (needsReload) {
     return (
@@ -102,6 +125,27 @@ export default function Billing() {
   return (
     <Page title="Billing" backAction={{ url: "/app" }}>
       <Layout>
+        {billingUnavailable && (
+          <Layout.Section>
+            <Banner tone="warning" title="Billing isn't available yet">
+              <p>
+                Shopify only opens up its Billing API to a Public app once it's been
+                reviewed and approved for the App Store — this store can't subscribe to
+                a plan until then. The widget itself keeps working in the meantime;
+                nothing here is broken, it's a normal step before launch.
+              </p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {actionData?.error && (
+          <Layout.Section>
+            <Banner tone="critical" title="Couldn't start checkout">
+              <p>{actionData.error}</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
         <Layout.Section>
           <Banner tone="info" title={`${TRIAL_DAYS}-day free trial on every plan`}>
             <p>
@@ -138,7 +182,7 @@ export default function Billing() {
                     <Text as="p">Up to {details.quota} try-ons / month</Text>
                     <Form method="post">
                       <input type="hidden" name="plan" value={plan} />
-                      <Button submit variant={isActive ? "secondary" : "primary"} disabled={isActive} fullWidth>
+                      <Button submit variant={isActive ? "secondary" : "primary"} disabled={isActive || billingUnavailable} fullWidth>
                         {isActive ? "Active" : "Choose plan"}
                       </Button>
                     </Form>

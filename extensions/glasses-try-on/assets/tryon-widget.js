@@ -129,19 +129,44 @@
     return "#" + m.slice(0, 3).map((x) => Math.min(255, Number(x)).toString(16).padStart(2, "0")).join("");
   }
 
+  // A near-white/near-transparent detected background is indistinguishable
+  // from the page itself — confirmed on a real store: an outlined "Add to
+  // cart" button (white fill, just a border) got picked up as the match,
+  // producing a button that was effectively invisible (text with no
+  // visible fill at all). Reject anything that light and let the caller
+  // try the next candidate instead.
+  function isUsableBg(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return !(r > 235 && g > 235 && b > 235);
+  }
+
   // "Auto-match my theme" (Button tab). Copies the color/shape of the
-  // store's own Add to cart button so a merchant never has to pick colors
-  // by hand. Only meaningful on a product page — nothing to sample from on
-  // a catalog page, where the manual/default button settings apply instead
-  // for the mini-card button.
+  // store's own primary action button so a merchant never has to pick
+  // colors by hand. The dynamic checkout button ("Buy it now") is checked
+  // first — themes far more consistently render it as a solid, branded
+  // button than "Add to cart", which is often just an outline. Only
+  // meaningful on a product page — nothing to sample from on a catalog
+  // page, where the manual/default button settings apply instead for the
+  // mini-card button.
   function detectThemeButtonStyle() {
-    const selectors = [".product-form__submit", "[data-add-to-cart]", ".add-to-cart", '[name="add"]', ".btn-cart", 'button[type="submit"]'];
+    const selectors = [
+      ".shopify-payment-button__button--unbranded",
+      ".shopify-payment-button__button",
+      ".product-form__submit",
+      "[data-add-to-cart]",
+      ".add-to-cart",
+      '[name="add"]',
+      ".btn-cart",
+      'button[type="submit"]',
+    ];
     for (const sel of selectors) {
       const el = document.querySelector(sel);
       if (!el) continue;
       const style = getComputedStyle(el);
       const bg = rgbToHex(style.backgroundColor);
-      if (!bg) continue; // transparent/unset — not a real button color to copy
+      if (!bg || !isUsableBg(bg)) continue; // transparent/unset/near-white — not a real button color to copy
       const radiusPx = parseFloat(style.borderRadius) || 0;
       return {
         buttonStyle: "solid",
