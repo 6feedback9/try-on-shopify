@@ -498,6 +498,41 @@ function CardBadgePreview({ widget }) {
   );
 }
 
+// A hex TextField (so a merchant can still type/paste a code) plus a native
+// color swatch button next to it — clicking the swatch opens the browser's
+// own color picker. Works everywhere without pulling in a Polaris
+// ColorPicker popover just for six fields.
+function ColorField({ label, value, onChange, helpText, fallback }) {
+  const swatchValue = /^#[0-9a-fA-F]{6}$/.test(value) ? value : /^#[0-9a-fA-F]{6}$/.test(fallback) ? fallback : "#000000";
+  return (
+    <TextField
+      label={label}
+      value={value}
+      onChange={(next) => onChange(next.toUpperCase())}
+      autoComplete="off"
+      helpText={helpText}
+      connectedRight={
+        <input
+          type="color"
+          value={swatchValue}
+          onChange={(e) => onChange(e.target.value.toUpperCase())}
+          aria-label={`Pick ${label.toLowerCase()}`}
+          style={{
+            width: 40,
+            height: "100%",
+            minHeight: 36,
+            padding: 2,
+            border: "1px solid var(--p-color-border, #8a8a8a)",
+            borderRadius: "var(--p-border-radius-200, 8px)",
+            background: "none",
+            cursor: "pointer",
+          }}
+        />
+      }
+    />
+  );
+}
+
 export default function Settings() {
   const data = useLoaderData();
   const actionData = useActionData();
@@ -608,23 +643,17 @@ export default function Settings() {
                       <Select label="Fill" options={BUTTON_STYLE_OPTIONS} value={widget.buttonStyle} onChange={set("buttonStyle")} />
 
                       <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                        <TextField
+                        <ColorField
                           label={widget.buttonStyle === "gradient" ? "Color (gradient start)" : "Color"}
                           value={widget.buttonColorStart}
                           onChange={set("buttonColorStart")}
-                          autoComplete="off"
                         />
                         {widget.buttonStyle === "gradient" && (
-                          <TextField
-                            label="Color (gradient end)"
-                            value={widget.buttonColorEnd}
-                            onChange={set("buttonColorEnd")}
-                            autoComplete="off"
-                          />
+                          <ColorField label="Color (gradient end)" value={widget.buttonColorEnd} onChange={set("buttonColorEnd")} />
                         )}
                       </InlineGrid>
 
-                      <TextField label="Text color" value={widget.buttonTextColor} onChange={set("buttonTextColor")} autoComplete="off" />
+                      <ColorField label="Text color" value={widget.buttonTextColor} onChange={set("buttonTextColor")} />
 
                       <RangeSlider
                         label={`Button size — ${widget.buttonSize}%`}
@@ -677,25 +706,25 @@ export default function Settings() {
                         placeholder="Upload your photo"
                       />
                       <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
-                        <TextField
+                        <ColorField
                           label="Accent color (start)"
                           value={widget.modalAccentColorStart}
                           onChange={set("modalAccentColorStart")}
-                          autoComplete="off"
                           helpText="Leave blank to reuse the button's colors."
+                          fallback={widget.buttonColorStart}
                         />
-                        <TextField
+                        <ColorField
                           label="Accent color (end)"
                           value={widget.modalAccentColorEnd}
                           onChange={set("modalAccentColorEnd")}
-                          autoComplete="off"
+                          fallback={widget.buttonColorEnd}
                         />
                       </InlineGrid>
-                      <TextField
+                      <ColorField
                         label="Accent text color"
                         value={widget.modalAccentTextColor}
                         onChange={set("modalAccentTextColor")}
-                        autoComplete="off"
+                        fallback={widget.buttonTextColor}
                       />
                       <Select label="Layout" options={MODAL_LAYOUT_OPTIONS} value={widget.modalLayout} onChange={set("modalLayout")} />
                       <Checkbox
