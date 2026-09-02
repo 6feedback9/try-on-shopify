@@ -19,11 +19,15 @@ export const ALL_PLANS = [PLAN_STARTER, PLAN_BRAND, PLAN_AGENCY];
 // merchant subscribes here, go assign the matching plan there (see `quota`
 // below for the numbers to use). This app has no way to do that for you.
 export const PLAN_DETAILS = {
-  [PLAN_STARTER]: { price: 29, quota: 150, blurb: "For a single small storefront getting started with AI try-on." },
-  [PLAN_BRAND]: { price: 99, quota: 750, blurb: "For a growing store that wants higher volume and priority support." },
-  [PLAN_AGENCY]: { price: 179, quota: 2000, blurb: "For high-traffic stores or agencies running try-on across catalogs." },
+  [PLAN_STARTER]: { price: 29, quota: 100, blurb: "For a single small storefront getting started with AI try-on." },
+  [PLAN_BRAND]: { price: 99, quota: 500, blurb: "For a growing store that wants higher volume and priority support." },
+  [PLAN_AGENCY]: { price: 179, quota: 1000, blurb: "For high-traffic stores or agencies running try-on across catalogs." },
 };
 
-// 7-day free trial on every plan (temporary, for testing — revisit before
-// public launch, see instruction history).
-export const TRIAL_DAYS = 7;
+// A shop with no active plan gets this many free try-ons (all-time, not
+// per month) before the widget stops working — no time-based grace period
+// (Shopify's own billing.request({ trialDays }) mechanism isn't used at
+// all; see billing.server.js). Enforced in app/routes/apps.tryon.$.jsx
+// against Lumi Frame's own analytics — see TRIAL_USAGE_CHECK_TTL_MS
+// there for how often that's actually re-checked.
+export const TRIAL_TRYON_LIMIT = 10;

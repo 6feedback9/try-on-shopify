@@ -13,7 +13,7 @@ import {
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import { ALL_PLANS, PLAN_DETAILS, TRIAL_DAYS } from "../billing";
+import { ALL_PLANS, PLAN_DETAILS, TRIAL_TRYON_LIMIT } from "../billing";
 import { createTranslator } from "../i18n";
 
 // If a session row exists for this shop but has no access token (e.g. left
@@ -142,7 +142,7 @@ export default function Billing() {
         )}
 
         <Layout.Section>
-          <Banner tone="info" title={t("billing.trialBanner", { days: TRIAL_DAYS })}>
+          <Banner tone="info" title={t("billing.trialBanner", { limit: TRIAL_TRYON_LIMIT })}>
             <p>{t("billing.trialBannerBody")}</p>
           </Banner>
         </Layout.Section>

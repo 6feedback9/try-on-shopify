@@ -37,7 +37,7 @@ const en = {
   "dashboard.noTryOnsYet":
     'No try-ons yet. Add the "AI Glasses Try-On" block to your product template from the theme editor to start collecting data.',
 
-  "billing.trialBanner": "{days}-day free trial on every plan",
+  "billing.trialBanner": "First {limit} try-ons free, no plan needed",
   "billing.trialBannerBody":
     "Prices here are placeholders for launch — edit them in app/billing.js before submitting to the App Store.",
   "billing.currentPlanBadge": "Current plan",
@@ -209,7 +209,7 @@ const uk = {
   "dashboard.noTryOnsYet":
     'Ще немає примірок. Додайте блок "AI Glasses Try-On" до шаблону товару в редакторі теми, щоб почати збирати дані.',
 
-  "billing.trialBanner": "{days}-денний безкоштовний пробний період на будь-якому тарифі",
+  "billing.trialBanner": "Перші {limit} примірок безкоштовно, тариф не потрібен",
   "billing.trialBannerBody":
     "Ціни тут — заглушки для запуску, змініть їх у app/billing.js перед публікацією в App Store.",
   "billing.currentPlanBadge": "Поточний тариф",
@@ -381,7 +381,7 @@ const pl = {
   "dashboard.noTryOnsYet":
     'Jeszcze brak przymierzeń. Dodaj blok "AI Glasses Try-On" do szablonu produktu w edytorze motywu, aby zacząć zbierać dane.',
 
-  "billing.trialBanner": "{days}-dniowy bezpłatny okres próbny na każdym planie",
+  "billing.trialBanner": "Pierwsze {limit} przymierzeń za darmo, bez planu",
   "billing.trialBannerBody":
     "Ceny tutaj to zastępcze wartości na start — zmień je w app/billing.js przed wysłaniem do App Store.",
   "billing.currentPlanBadge": "Aktualny plan",
@@ -553,7 +553,7 @@ const cs = {
   "dashboard.noTryOnsYet":
     'Zatím žádná zkoušení. Přidejte blok "AI Glasses Try-On" do šablony produktu v editoru šablon a začněte sbírat data.',
 
-  "billing.trialBanner": "{days}denní bezplatná zkušební doba u každého plánu",
+  "billing.trialBanner": "Prvních {limit} zkoušení zdarma, bez plánu",
   "billing.trialBannerBody":
     "Ceny zde jsou zástupné pro spuštění — upravte je v app/billing.js před odesláním do App Store.",
   "billing.currentPlanBadge": "Aktuální plán",
@@ -725,7 +725,7 @@ const de = {
   "dashboard.noTryOnsYet":
     'Noch keine Anproben. Fügen Sie den Block "AI Glasses Try-On" im Theme-Editor zu Ihrer Produktvorlage hinzu, um mit dem Sammeln von Daten zu beginnen.',
 
-  "billing.trialBanner": "{days}-tägige kostenlose Testphase bei jedem Plan",
+  "billing.trialBanner": "Die ersten {limit} Anproben kostenlos, ohne Plan",
   "billing.trialBannerBody":
     "Die Preise hier sind Platzhalter für den Start — bearbeiten Sie sie in app/billing.js, bevor Sie im App Store einreichen.",
   "billing.currentPlanBadge": "Aktueller Plan",

@@ -71,6 +71,13 @@ model ShopSettings {
   // storefront widget's language (widgetConfig.widgetLanguage, decided per
   // shopper, not per merchant).
   adminLanguage   String   @default("en")
+  // Cached count toward the free-trial limit (TRIAL_TRYON_LIMIT in
+  // billing.js) for a shop with no active plan — refreshed from Lumi
+  // Frame's own analytics at most every few minutes by the App Proxy
+  // config route (apps.tryon.$.jsx), not on every single storefront page
+  // view. Ignored once `plan` is set.
+  trialTryOnsUsed      Int      @default(0)
+  trialUsageCheckedAt  DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
