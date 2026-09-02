@@ -146,7 +146,34 @@
   // so its detector picks them up as if the theme had wired them by hand.
   const CART_CONTAINER_SELECTOR = '[id*="cart" i], [class*="cart" i], [data-cart], cart-drawer, cart-notification, cart-items';
 
-  function markCardsForFallbackDetection() {
+  // "Which products" (Settings → Which products tab) applied to the
+  // mini-card button. Only covers cards this file marks itself
+  // (markCardsForFallbackDetection) — a theme where the SDK's own native
+  // detector finds cards directly, without going through that function,
+  // isn't filtered by this (a gap worth revisiting if it comes up).
+  // Matches by handle/slug, not the numeric id Settings stores for the
+  // product-page button check: a catalog card's link only ever exposes
+  // "/products/<handle>", never the numeric id.
+  function isCardAllowed(link, widgetConfig) {
+    const mode = widgetConfig.visibilityMode || "all";
+    if (mode === "products") {
+      const handles = widgetConfig.visibilityProductHandles || [];
+      if (!handles.length) return true; // not configured yet — don't hide everything by mistake
+      const m = link.pathname.match(/\/products\/([^/?#]+)/);
+      return m ? handles.includes(m[1]) : true;
+    }
+    if (mode === "collection") {
+      if (!widgetConfig.visibilityCollectionHandle) return true;
+      // Can only verify this cheaply when the current page IS that
+      // collection's own listing — no per-card collection membership
+      // data is available client-side otherwise.
+      const m = window.location.pathname.match(/\/collections\/([^/?#]+)/);
+      return m ? m[1] === widgetConfig.visibilityCollectionHandle : false;
+    }
+    return true;
+  }
+
+  function markCardsForFallbackDetection(widgetConfig) {
     const links = document.querySelectorAll('a[href*="/products/"], a[href*="/product/"]');
     const seenHrefs = new Set();
     for (const link of links) {
@@ -154,6 +181,7 @@
       if (link.querySelector("img")) continue; // the SDK's own detector already handles this one
       if (link.pathname === window.location.pathname) continue; // this page's own product — already has the main button
       if (seenHrefs.has(link.href)) continue;
+      if (!isCardAllowed(link, widgetConfig)) continue;
 
       // Climb a few levels from the link looking for a shared ancestor
       // that also contains the thumbnail — the "card" wrapper.
@@ -234,7 +262,7 @@
     // markCardsForFallbackDetection above). Must run before init() below,
     // since that's what schedules the SDK's own detection pass.
     if (widgetConfig.cardButtonEnabled) {
-      markCardsForFallbackDetection();
+      markCardsForFallbackDetection(widgetConfig);
     }
 
     // Button/modal/card appearance, as saved on this app's Settings page

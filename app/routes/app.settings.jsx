@@ -89,8 +89,13 @@ function widgetConfigDefaults(saved, fallbackButtonLabel) {
     // emits; "all" (default) skips the check entirely.
     visibilityMode: w.visibilityMode ?? "all",
     visibilityCollectionId: w.visibilityCollectionId ?? null,
+    visibilityCollectionHandle: w.visibilityCollectionHandle ?? null,
     visibilityCollectionTitle: w.visibilityCollectionTitle ?? "",
     visibilityProductIds: w.visibilityProductIds ?? [],
+    // Catalog-page cards (mini-card button) only ever expose a product's
+    // handle in their link ("/products/<handle>"), never its numeric id —
+    // so the mini-card filter in tryon-widget.js matches on this instead.
+    visibilityProductHandles: w.visibilityProductHandles ?? [],
     visibilityProductTitles: w.visibilityProductTitles ?? [],
   };
 }
@@ -615,8 +620,8 @@ export default function Settings() {
   const pickCollection = useCallback(async () => {
     const selected = await shopify.resourcePicker({ type: "collection", action: "select" });
     if (!selected || !selected.length) return;
-    const { id, title } = selected[0];
-    setWidget((w) => ({ ...w, visibilityCollectionId: gidToId(id), visibilityCollectionTitle: title }));
+    const { id, title, handle } = selected[0];
+    setWidget((w) => ({ ...w, visibilityCollectionId: gidToId(id), visibilityCollectionHandle: handle, visibilityCollectionTitle: title }));
   }, [shopify]);
 
   const pickProducts = useCallback(async () => {
@@ -630,6 +635,7 @@ export default function Settings() {
     setWidget((w) => ({
       ...w,
       visibilityProductIds: selected.map((p) => gidToId(p.id)),
+      visibilityProductHandles: selected.map((p) => p.handle),
       visibilityProductTitles: selected.map((p) => p.title),
     }));
   }, [shopify, widget.visibilityProductIds]);
@@ -637,6 +643,7 @@ export default function Settings() {
   const removeProduct = useCallback((index) => {
     setWidget((w) => ({
       ...w,
+      visibilityProductHandles: w.visibilityProductHandles.filter((_, i) => i !== index),
       visibilityProductIds: w.visibilityProductIds.filter((_, i) => i !== index),
       visibilityProductTitles: w.visibilityProductTitles.filter((_, i) => i !== index),
     }));
