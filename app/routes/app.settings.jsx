@@ -70,7 +70,6 @@ function widgetConfigDefaults(saved, fallbackButtonLabel) {
     buttonGlow: w.buttonGlow ?? false,
     buttonAnimation: w.buttonAnimation ?? "none",
     buttonPosition: w.buttonPosition ?? "after",
-    showPoweredBy: w.showPoweredBy ?? true,
     modalHeading: w.modalHeading ?? "",
     modalSubheading: w.modalSubheading ?? "",
     modalAccentColorStart: w.modalAccentColorStart ?? "",
@@ -89,8 +88,14 @@ export const loader = async ({ request }) => {
   const settings = await prisma.shopSettings.findUnique({ where: { shop: session.shop } });
   const connected = Boolean(settings?.lumiframeStoreId);
 
-  let savedWidgetConfig = null;
-  if (connected) {
+  // The locally stored copy (what the storefront actually reads) is the
+  // source of truth once anything's been saved here. Only fall back to
+  // asking Lumi Frame directly the very first time — right after
+  // Connect, before this page has ever saved an appearance — in case a
+  // config already exists there (e.g. set once from Lumi Frame's own
+  // dashboard).
+  let savedWidgetConfig = settings?.widgetConfig && Object.keys(settings.widgetConfig).length ? settings.widgetConfig : null;
+  if (connected && !savedWidgetConfig) {
     const token = await getFreshToken(settings);
     if (token) {
       const store = await getStore(token);
@@ -184,21 +189,23 @@ export const action = async ({ request }) => {
     where: { shop: session.shop },
     data: {
       enabled: wantsEnabled,
-      // Mirrored locally too: the App Proxy's /config route (read by the
-      // storefront) hands this to TryOn.init()'s own buttonLabel option
-      // without a Lumi Frame round-trip on every page view.
       buttonLabel: String(widgetConfig.buttonText || "Try On With AI").trim(),
+      // The actual source the storefront reads from (App Proxy's /config
+      // route) — @lumiframe/sdk takes all of this as TryOn.init() options
+      // directly, it does not fetch it itself via storeId. Stored here so
+      // every product-page view doesn't need a live, authenticated call
+      // to Lumi Frame just to read color settings back.
+      widgetConfig,
     },
   });
 
+  // Also pushed to Lumi Frame's own Store.widgetConfig — not required for
+  // this app's own storefront widget (which reads the copy above), but
+  // keeps Lumi Frame's own dashboard/records showing the same values if
+  // this merchant ever opens it directly.
   if (existing?.lumiframeStoreId) {
     const token = await getFreshToken(existing);
-    if (token) {
-      const result = await updateWidgetConfig(token, widgetConfig);
-      if (!result.ok) {
-        return json({ ok: false, error: "Saved locally, but Lumi Frame rejected the appearance update — try again." }, { status: 400 });
-      }
-    }
+    if (token) await updateWidgetConfig(token, widgetConfig).catch(() => {});
   }
 
   return json({ ok: true });
@@ -392,11 +399,6 @@ export default function Settings() {
                         onChange={set("buttonPosition")}
                       />
                       <Checkbox label="Glow effect" checked={widget.buttonGlow} onChange={set("buttonGlow")} />
-                      <Checkbox
-                        label='Show "Powered by Lumi Frame"'
-                        checked={widget.showPoweredBy}
-                        onChange={set("showPoweredBy")}
-                      />
                     </BlockStack>
                   )}
 

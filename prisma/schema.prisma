@@ -53,6 +53,14 @@ model ShopSettings {
 
   widgetColor     String   @default("#111111")
   buttonLabel     String   @default("Try On With AI")
+  // Everything @lumiframe/sdk's TryOn.init() accepts for button/modal/card
+  // appearance (buttonColorStart, buttonStyle, modalHeading, ...) — the
+  // SDK takes these as plain init() options, it does NOT fetch them
+  // itself from Lumi Frame via storeId (that was a wrong assumption in an
+  // earlier version of this app). Cached here so the App Proxy's /config
+  // route (read on every storefront page view) doesn't need a live,
+  // authenticated call to Lumi Frame just to hand back color settings.
+  widgetConfig    Json     @default("{}")
   enabled         Boolean  @default(false)
   // Name of the active Shopify Billing subscription (Starter/Brand/Agency),
   // kept in sync by app/routes/app.billing.callback.jsx and the

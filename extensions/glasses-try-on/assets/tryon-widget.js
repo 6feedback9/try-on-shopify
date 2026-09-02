@@ -79,15 +79,42 @@
       return;
     }
 
-    // Color/style beyond the label are configured server-side, in Lumi
-    // Frame's own Store.widgetConfig (pushed there by this app's Settings
-    // page — see app/routes/app.settings.jsx) — the SDK reads that itself
-    // via storeId, so there's no color option to pass here.
+    // Button/modal/card appearance, as saved on this app's Settings page
+    // (app/routes/app.settings.jsx) and handed back by /apps/tryon/config.
+    // @lumiframe/sdk's TryOn.init() takes all of this as plain init()
+    // options — it does not fetch it itself — so every saved field has to
+    // be passed through explicitly here. Undefined keys are fine; the SDK
+    // falls back to its own defaults for anything not set.
+    const widgetConfig = config.widgetConfig || {};
+
     window.TryOn.init({
       storeId: config.storeId,
       apiBaseUrl: config.apiBaseUrl,
       buttonLabel: config.buttonLabel,
       locale: resolveLocale(root),
+
+      buttonStyle: widgetConfig.buttonStyle,
+      buttonColorStart: widgetConfig.buttonColorStart,
+      buttonColorEnd: widgetConfig.buttonColorEnd,
+      buttonTextColor: widgetConfig.buttonTextColor,
+      buttonSize: widgetConfig.buttonSize,
+      buttonWidth: widgetConfig.buttonWidth,
+      buttonShape: widgetConfig.buttonShape,
+      buttonGlow: widgetConfig.buttonGlow,
+      buttonAnimation: widgetConfig.buttonAnimation,
+      buttonPosition: widgetConfig.buttonPosition,
+
+      modalHeading: widgetConfig.modalHeading,
+      modalSubheading: widgetConfig.modalSubheading,
+      modalAccentColorStart: widgetConfig.modalAccentColorStart,
+      modalAccentColorEnd: widgetConfig.modalAccentColorEnd,
+      modalAccentTextColor: widgetConfig.modalAccentTextColor,
+      modalLayout: widgetConfig.modalLayout,
+      showTryAnotherButton: widgetConfig.showTryAnotherButton,
+      showBackButton: widgetConfig.showBackButton,
+
+      cardButtonEnabled: widgetConfig.cardButtonEnabled,
+      cardButtonVariant: widgetConfig.cardButtonVariant,
     });
 
     window.TryOn.attach(readProduct(root));
