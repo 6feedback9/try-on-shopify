@@ -6,10 +6,13 @@
   this product's real data via Liquid — no custom modal/button code lives
   in this app, Lumi Frame's SDK builds and places the button itself.
 
-  Button label/color are NOT configured here — they're set once, for the
-  whole store, on this app's own Settings page. A per-block "Accent color"
-  setting used to live here but did nothing, so it was removed to avoid
-  the confusing "I set it here but nothing changed" trap.
+  Everything about the button — label, colors, and which products it
+  shows on ("Which products" tab) — is set once, for the whole store, on
+  this app's own Settings page, not here. This block's only job is to
+  hand tryon-widget.js this product's real data (id, title, price, and
+  which collections it's in, so the "only a specific collection" setting
+  has something to check against) and let the JS decide whether to show
+  anything.
 
   This block alone only covers the button on THIS product page. The
   "Mini-card button" setting (Settings → Mini-card button tab) also needs
@@ -19,39 +22,24 @@
 {% endcomment %}
 
 {% liquid
-  assign agto_show = true
-
-  if block.settings.tag_filter != blank
-    assign agto_show = false
-    if product.tags contains block.settings.tag_filter
-      assign agto_show = true
-    endif
-  endif
-
-  if agto_show and block.settings.product_type_filter != blank
-    if product.type != block.settings.product_type_filter
-      assign agto_show = false
-    endif
-  endif
-
   assign agto_price = product.selected_or_first_available_variant.price | default: product.price
   assign agto_price = agto_price | divided_by: 100.0
+  assign agto_collection_ids = product.collections | map: 'id' | join: ','
 %}
 
-{% if agto_show %}
-  <div
-    data-agto-root
-    data-product-id="{{ product.id }}"
-    data-product-title="{{ product.title | escape }}"
-    data-product-url="{{ product.url }}"
-    data-product-image="{{ product.featured_image | image_url: width: 1200 }}"
-    data-price="{{ agto_price }}"
-    data-currency="{{ cart.currency.iso_code | default: shop.currency }}"
-    data-sku="{{ product.selected_or_first_available_variant.sku }}"
-    data-locale="{{ request.locale.iso_code }}"
-    {{ block.shopify_attributes }}
-  ></div>
-{% endif %}
+<div
+  data-agto-root
+  data-product-id="{{ product.id }}"
+  data-product-title="{{ product.title | escape }}"
+  data-product-url="{{ product.url }}"
+  data-product-image="{{ product.featured_image | image_url: width: 1200 }}"
+  data-price="{{ agto_price }}"
+  data-currency="{{ cart.currency.iso_code | default: shop.currency }}"
+  data-sku="{{ product.selected_or_first_available_variant.sku }}"
+  data-locale="{{ request.locale.iso_code }}"
+  data-collection-ids="{{ agto_collection_ids }}"
+  {{ block.shopify_attributes }}
+></div>
 
 {% schema %}
 {
@@ -61,23 +49,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Button label and color are set once for the whole store, on this app's own Settings page — not here."
-    },
-    {
-      "type": "header",
-      "content": "Only show on eyewear products"
-    },
-    {
-      "type": "text",
-      "id": "tag_filter",
-      "label": "Tag filter (optional)",
-      "info": "e.g. \"glasses\". If set, the button only shows on products with this tag. Leave blank to show on every product using this template."
-    },
-    {
-      "type": "text",
-      "id": "product_type_filter",
-      "label": "Product type filter (optional)",
-      "info": "e.g. \"Eyewear\" — must match the product's Type field exactly. Leave blank to ignore."
+      "content": "Everything about this button — label, colors, and which products it shows on — is set once for the whole store, on this app's own Settings page (Which products tab). Nothing to configure here."
     }
   ]
 }

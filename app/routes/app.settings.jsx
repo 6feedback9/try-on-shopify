@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { json } from "@remix-run/node";
 import { useActionData, useLoaderData, useNavigation, Form } from "@remix-run/react";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { useState, useCallback } from "react";
 import {
   Page,
@@ -18,6 +19,7 @@ import {
   Checkbox,
   Badge,
   Tabs,
+  Tag,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
@@ -80,7 +82,23 @@ function widgetConfigDefaults(saved, fallbackButtonLabel) {
     showBackButton: w.showBackButton ?? true,
     cardButtonEnabled: w.cardButtonEnabled ?? false,
     cardButtonVariant: w.cardButtonVariant ?? "corner",
+    // Which products get the button at all — e.g. a store that also sells
+    // accessories, where try-on only makes sense for eyewear. Checked in
+    // tryon-widget.js against the product/collection ids the Liquid block
+    // emits; "all" (default) skips the check entirely.
+    visibilityMode: w.visibilityMode ?? "all",
+    visibilityCollectionId: w.visibilityCollectionId ?? null,
+    visibilityCollectionTitle: w.visibilityCollectionTitle ?? "",
+    visibilityProductIds: w.visibilityProductIds ?? [],
+    visibilityProductTitles: w.visibilityProductTitles ?? [],
   };
+}
+
+// Admin resource pickers hand back full GIDs (gid://shopify/Product/123);
+// Liquid's product.id / product.collections give plain numeric ids. Store
+// the plain form everywhere so tryon-widget.js can compare them directly.
+function gidToId(gid) {
+  return String(gid).split("/").pop();
 }
 
 export const loader = async ({ request }) => {
@@ -238,6 +256,11 @@ const CARD_VARIANT_OPTIONS = [
   { label: "Corner", value: "corner" },
   { label: "Drawer", value: "drawer" },
   { label: "Scrim", value: "scrim" },
+];
+const VISIBILITY_MODE_OPTIONS = [
+  { label: "All products", value: "all" },
+  { label: "Only a specific collection", value: "collection" },
+  { label: "Only specific products", value: "products" },
 ];
 
 // ── Live preview ──────────────────────────────────────────────────────
@@ -498,6 +521,29 @@ function CardBadgePreview({ widget }) {
   );
 }
 
+function VisibilityPreview({ widget }) {
+  if (widget.visibilityMode === "collection") {
+    return (
+      <Text as="p">
+        {widget.visibilityCollectionTitle
+          ? <>Only products in <strong>{widget.visibilityCollectionTitle}</strong> will show the button.</>
+          : "Pick a collection to see it summarized here."}
+      </Text>
+    );
+  }
+  if (widget.visibilityMode === "products") {
+    const count = widget.visibilityProductIds?.length || 0;
+    return (
+      <Text as="p">
+        {count > 0
+          ? `The button will only show on these ${count} product${count === 1 ? "" : "s"}.`
+          : "Pick at least one product — until then the button shows everywhere, same as \"All products\"."}
+      </Text>
+    );
+  }
+  return <Text as="p">The button will show on every product page.</Text>;
+}
+
 // A hex TextField (so a merchant can still type/paste a code) plus a native
 // color swatch button next to it — clicking the swatch opens the browser's
 // own color picker. Works everywhere without pulling in a Polaris
@@ -540,15 +586,47 @@ export default function Settings() {
   const isSubmitting = navigation.state === "submitting";
   const submittingIntent = navigation.formData?.get("intent");
 
+  const shopify = useAppBridge();
   const [enabled, setEnabled] = useState(data.enabled);
   const [widget, setWidget] = useState(data.widgetConfig);
   const set = useCallback((key) => (value) => setWidget((w) => ({ ...w, [key]: value })), []);
+
+  const pickCollection = useCallback(async () => {
+    const selected = await shopify.resourcePicker({ type: "collection", action: "select" });
+    if (!selected || !selected.length) return;
+    const { id, title } = selected[0];
+    setWidget((w) => ({ ...w, visibilityCollectionId: gidToId(id), visibilityCollectionTitle: title }));
+  }, [shopify]);
+
+  const pickProducts = useCallback(async () => {
+    const selected = await shopify.resourcePicker({
+      type: "product",
+      action: "select",
+      multiple: true,
+      selectionIds: (widget.visibilityProductIds || []).map((id) => ({ id: `gid://shopify/Product/${id}` })),
+    });
+    if (!selected) return;
+    setWidget((w) => ({
+      ...w,
+      visibilityProductIds: selected.map((p) => gidToId(p.id)),
+      visibilityProductTitles: selected.map((p) => p.title),
+    }));
+  }, [shopify, widget.visibilityProductIds]);
+
+  const removeProduct = useCallback((index) => {
+    setWidget((w) => ({
+      ...w,
+      visibilityProductIds: w.visibilityProductIds.filter((_, i) => i !== index),
+      visibilityProductTitles: w.visibilityProductTitles.filter((_, i) => i !== index),
+    }));
+  }, []);
 
   const [tab, setTab] = useState(0);
   const tabs = [
     { id: "button", content: "Button" },
     { id: "modal", content: "Try-on window" },
     { id: "card", content: "Mini-card button" },
+    { id: "visibility", content: "Which products" },
   ];
 
   return (
@@ -755,6 +833,60 @@ export default function Settings() {
                       </Text>
                     </BlockStack>
                   )}
+
+                  {tab === 3 && (
+                    <BlockStack gap="400">
+                      <Select
+                        label="Show the button on"
+                        options={VISIBILITY_MODE_OPTIONS}
+                        value={widget.visibilityMode}
+                        onChange={set("visibilityMode")}
+                      />
+
+                      {widget.visibilityMode === "collection" && (
+                        <BlockStack gap="200">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Button onClick={pickCollection}>
+                              {widget.visibilityCollectionId ? "Change collection" : "Choose collection"}
+                            </Button>
+                            {widget.visibilityCollectionTitle && <Badge tone="info">{widget.visibilityCollectionTitle}</Badge>}
+                          </InlineStack>
+                          <Text as="p" tone="subdued">
+                            Only products in this collection will show the "Try on" button.
+                          </Text>
+                        </BlockStack>
+                      )}
+
+                      {widget.visibilityMode === "products" && (
+                        <BlockStack gap="200">
+                          <Button onClick={pickProducts}>
+                            {widget.visibilityProductIds?.length ? "Change products" : "Choose products"}
+                          </Button>
+                          {widget.visibilityProductTitles?.length > 0 && (
+                            <InlineStack gap="150" wrap>
+                              {widget.visibilityProductTitles.map((title, i) => (
+                                <Tag key={widget.visibilityProductIds[i] || title} onRemove={() => removeProduct(i)}>
+                                  {title}
+                                </Tag>
+                              ))}
+                            </InlineStack>
+                          )}
+                          <Text as="p" tone="subdued">
+                            Only the products picked here will show the "Try on" button — every other
+                            product on your site keeps it hidden.
+                          </Text>
+                        </BlockStack>
+                      )}
+
+                      {widget.visibilityMode !== "all" && (
+                        <Text as="p" tone="subdued">
+                          Note: this only controls the button on the product page. The mini-card
+                          button on catalog pages (previous tab) doesn't filter by product yet —
+                          ask if you'd like that added too.
+                        </Text>
+                      )}
+                    </BlockStack>
+                  )}
                 </div>
 
                 <div style={{ padding: 16, borderTop: "1px solid var(--p-color-border-secondary, #e1e3e5)" }}>
@@ -791,6 +923,7 @@ export default function Settings() {
                 {tab === 0 && <ProductCardPreview widget={widget} />}
                 {tab === 1 && <ModalPreview widget={widget} />}
                 {tab === 2 && <CardBadgePreview widget={widget} />}
+                {tab === 3 && <VisibilityPreview widget={widget} />}
               </BlockStack>
             </Card>
           </div>

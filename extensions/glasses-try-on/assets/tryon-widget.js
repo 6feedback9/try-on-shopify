@@ -60,6 +60,25 @@
     };
   }
 
+  // "Which products" setting (Settings page). Only meaningful on an actual
+  // product page (root present) — the mini-card button on catalog pages
+  // doesn't go through this check yet, it still shows on every card the
+  // SDK's own detector finds.
+  function isProductAllowed(root, widgetConfig) {
+    const mode = widgetConfig.visibilityMode || "all";
+    if (mode === "products") {
+      const allowed = widgetConfig.visibilityProductIds || [];
+      if (!allowed.length) return true; // not configured yet — don't hide everything by mistake
+      return allowed.includes(root.dataset.productId);
+    }
+    if (mode === "collection") {
+      if (!widgetConfig.visibilityCollectionId) return true; // same — nothing picked yet
+      const collectionIds = (root.dataset.collectionIds || "").split(",").filter(Boolean);
+      return collectionIds.includes(widgetConfig.visibilityCollectionId);
+    }
+    return true;
+  }
+
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const s = document.createElement("script");
@@ -88,6 +107,13 @@
 
     if (!config.enabled) return; // not connected / not enabled — render nothing
 
+    const widgetConfig = config.widgetConfig || {};
+
+    // On an actual product page, respect "Which products" before doing
+    // anything else — including loading the SDK — so a product excluded
+    // there never gets a button at all.
+    if (root && !isProductAllowed(root, widgetConfig)) return;
+
     // Loaded once even if this block appears more than once on a page.
     if (!window.TryOn) {
       try {
@@ -108,8 +134,6 @@
     // options — it does not fetch it itself — so every saved field has to
     // be passed through explicitly here. Undefined keys are fine; the SDK
     // falls back to its own defaults for anything not set.
-    const widgetConfig = config.widgetConfig || {};
-
     window.TryOn.init({
       storeId: config.storeId,
       apiBaseUrl: config.apiBaseUrl,
