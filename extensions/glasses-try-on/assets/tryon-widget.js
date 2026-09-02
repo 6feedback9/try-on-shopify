@@ -79,6 +79,61 @@
     return true;
   }
 
+  // Settings' color fields save as "" when left blank (e.g. "leave blank to
+  // reuse the button's colors" on the modal accent fields), and a merchant
+  // can still type a code without the leading "#". Passing "" through to
+  // TryOn.init() is NOT the same as omitting the key — @lumiframe/sdk's
+  // documented "defaults to the button's colors when omitted" behavior only
+  // triggers when the key is actually absent, so an explicit "" silently
+  // breaks it (the browser ignores an empty CSS color, and whatever the
+  // SDK's own built-in default is shows through instead). Strip anything
+  // that isn't a real color down to `undefined` so it's genuinely omitted.
+  function sanitizeColor(v) {
+    if (!v) return undefined;
+    let s = String(v).trim();
+    if (!s) return undefined;
+    if (!s.startsWith("#")) s = "#" + s;
+    return /^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{6}$/.test(s) ? s : undefined;
+  }
+
+  // Same idea for plain text fields — an explicit "" would override the
+  // SDK's own default heading/subheading with blank text instead of
+  // falling back to it.
+  function orUndef(v) {
+    return v === "" || v === null ? undefined : v;
+  }
+
+  function rgbToHex(rgbString) {
+    const m = String(rgbString || "").match(/\d+/g);
+    if (!m || m.length < 3) return undefined;
+    return "#" + m.slice(0, 3).map((x) => Math.min(255, Number(x)).toString(16).padStart(2, "0")).join("");
+  }
+
+  // "Auto-match my theme" (Button tab). Copies the color/shape of the
+  // store's own Add to cart button so a merchant never has to pick colors
+  // by hand. Only meaningful on a product page — nothing to sample from on
+  // a catalog page, where the manual/default button settings apply instead
+  // for the mini-card button.
+  function detectThemeButtonStyle() {
+    const selectors = [".product-form__submit", "[data-add-to-cart]", ".add-to-cart", '[name="add"]', ".btn-cart", 'button[type="submit"]'];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const style = getComputedStyle(el);
+      const bg = rgbToHex(style.backgroundColor);
+      if (!bg) continue; // transparent/unset — not a real button color to copy
+      const radiusPx = parseFloat(style.borderRadius) || 0;
+      return {
+        buttonStyle: "solid",
+        buttonColorStart: bg,
+        buttonColorEnd: bg,
+        buttonTextColor: rgbToHex(style.color) || "#FFFFFF",
+        buttonShape: radiusPx >= (el.offsetHeight || 40) * 0.35 ? "rounded" : "rectangular",
+      };
+    }
+    return null;
+  }
+
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const s = document.createElement("script");
@@ -128,6 +183,11 @@
       return;
     }
 
+    // "Auto-match my theme" (Button tab) — only has something to sample on
+    // an actual product page; overrides the manual button colors/shape
+    // below when it finds a real button to copy.
+    const themeMatch = widgetConfig.buttonAutoMatchTheme && root ? detectThemeButtonStyle() : null;
+
     // Button/modal/card appearance, as saved on this app's Settings page
     // (app/routes/app.settings.jsx) and handed back by /apps/tryon/config.
     // @lumiframe/sdk's TryOn.init() takes all of this as plain init()
@@ -141,9 +201,9 @@
       locale: resolveLocale(root),
 
       buttonStyle: widgetConfig.buttonStyle,
-      buttonColorStart: widgetConfig.buttonColorStart,
-      buttonColorEnd: widgetConfig.buttonColorEnd,
-      buttonTextColor: widgetConfig.buttonTextColor,
+      buttonColorStart: sanitizeColor(widgetConfig.buttonColorStart),
+      buttonColorEnd: sanitizeColor(widgetConfig.buttonColorEnd),
+      buttonTextColor: sanitizeColor(widgetConfig.buttonTextColor),
       buttonSize: widgetConfig.buttonSize,
       buttonWidth: widgetConfig.buttonWidth,
       buttonShape: widgetConfig.buttonShape,
@@ -151,17 +211,19 @@
       buttonAnimation: widgetConfig.buttonAnimation,
       buttonPosition: widgetConfig.buttonPosition,
 
-      modalHeading: widgetConfig.modalHeading,
-      modalSubheading: widgetConfig.modalSubheading,
-      modalAccentColorStart: widgetConfig.modalAccentColorStart,
-      modalAccentColorEnd: widgetConfig.modalAccentColorEnd,
-      modalAccentTextColor: widgetConfig.modalAccentTextColor,
+      modalHeading: orUndef(widgetConfig.modalHeading),
+      modalSubheading: orUndef(widgetConfig.modalSubheading),
+      modalAccentColorStart: sanitizeColor(widgetConfig.modalAccentColorStart),
+      modalAccentColorEnd: sanitizeColor(widgetConfig.modalAccentColorEnd),
+      modalAccentTextColor: sanitizeColor(widgetConfig.modalAccentTextColor),
       modalLayout: widgetConfig.modalLayout,
       showTryAnotherButton: widgetConfig.showTryAnotherButton,
       showBackButton: widgetConfig.showBackButton,
 
       cardButtonEnabled: widgetConfig.cardButtonEnabled,
       cardButtonVariant: widgetConfig.cardButtonVariant,
+
+      ...themeMatch,
     });
 
     // Only on an actual product page — on a collection/search page there's

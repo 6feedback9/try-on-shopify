@@ -72,6 +72,7 @@ function widgetConfigDefaults(saved, fallbackButtonLabel) {
     buttonGlow: w.buttonGlow ?? false,
     buttonAnimation: w.buttonAnimation ?? "none",
     buttonPosition: w.buttonPosition ?? "after",
+    buttonAutoMatchTheme: w.buttonAutoMatchTheme ?? false,
     modalHeading: w.modalHeading ?? "",
     modalSubheading: w.modalSubheading ?? "",
     modalAccentColorStart: w.modalAccentColorStart ?? "",
@@ -336,6 +337,16 @@ function ButtonPreview({ widget }) {
 }
 
 function ProductCardPreview({ widget }) {
+  if (widget.buttonAutoMatchTheme) {
+    return (
+      <Text as="p" tone="subdued">
+        Auto-match is on — the button will copy your theme's real "Add to cart" button
+        color and shape on your actual store. This preview can't show that here (it
+        only sees this settings page, not your storefront) — check the button on the
+        real product page instead.
+      </Text>
+    );
+  }
   const btn = <ButtonPreview widget={widget} />;
   const addToCart = (
     <span
@@ -548,21 +559,30 @@ function VisibilityPreview({ widget }) {
 // color swatch button next to it — clicking the swatch opens the browser's
 // own color picker. Works everywhere without pulling in a Polaris
 // ColorPicker popover just for six fields.
-function ColorField({ label, value, onChange, helpText, fallback }) {
+function ColorField({ label, value, onChange, helpText, fallback, disabled }) {
   const swatchValue = /^#[0-9a-fA-F]{6}$/.test(value) ? value : /^#[0-9a-fA-F]{6}$/.test(fallback) ? fallback : "#000000";
   return (
     <TextField
       label={label}
       value={value}
-      onChange={(next) => onChange(next.toUpperCase())}
+      onChange={(next) => {
+        let v = next.toUpperCase();
+        // Typing "000000" instead of "#000000" silently produced an
+        // invalid color once sent to the storefront widget — accept it
+        // either way rather than requiring the "#".
+        if (v && !v.startsWith("#") && /^[0-9A-F]{3}$|^[0-9A-F]{6}$/.test(v)) v = "#" + v;
+        onChange(v);
+      }}
       autoComplete="off"
       helpText={helpText}
+      disabled={disabled}
       connectedRight={
         <input
           type="color"
           value={swatchValue}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
           aria-label={`Pick ${label.toLowerCase()}`}
+          disabled={disabled}
           style={{
             width: 40,
             height: "100%",
@@ -571,7 +591,8 @@ function ColorField({ label, value, onChange, helpText, fallback }) {
             border: "1px solid var(--p-color-border, #8a8a8a)",
             borderRadius: "var(--p-border-radius-200, 8px)",
             background: "none",
-            cursor: "pointer",
+            cursor: disabled ? "default" : "pointer",
+            opacity: disabled ? 0.5 : 1,
           }}
         />
       }
@@ -718,20 +739,44 @@ export default function Settings() {
                     <BlockStack gap="400">
                       <TextField label="Button text" value={widget.buttonText} onChange={set("buttonText")} autoComplete="off" />
 
-                      <Select label="Fill" options={BUTTON_STYLE_OPTIONS} value={widget.buttonStyle} onChange={set("buttonStyle")} />
+                      <Checkbox
+                        label="Automatically match my store's theme"
+                        helpText={`Copies the color and shape of your theme's own "Add to cart" button — the fields below are ignored while this is on.`}
+                        checked={widget.buttonAutoMatchTheme}
+                        onChange={set("buttonAutoMatchTheme")}
+                      />
+
+                      <Select
+                        label="Fill"
+                        options={BUTTON_STYLE_OPTIONS}
+                        value={widget.buttonStyle}
+                        onChange={set("buttonStyle")}
+                        disabled={widget.buttonAutoMatchTheme}
+                      />
 
                       <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                         <ColorField
                           label={widget.buttonStyle === "gradient" ? "Color (gradient start)" : "Color"}
                           value={widget.buttonColorStart}
                           onChange={set("buttonColorStart")}
+                          disabled={widget.buttonAutoMatchTheme}
                         />
                         {widget.buttonStyle === "gradient" && (
-                          <ColorField label="Color (gradient end)" value={widget.buttonColorEnd} onChange={set("buttonColorEnd")} />
+                          <ColorField
+                            label="Color (gradient end)"
+                            value={widget.buttonColorEnd}
+                            onChange={set("buttonColorEnd")}
+                            disabled={widget.buttonAutoMatchTheme}
+                          />
                         )}
                       </InlineGrid>
 
-                      <ColorField label="Text color" value={widget.buttonTextColor} onChange={set("buttonTextColor")} />
+                      <ColorField
+                        label="Text color"
+                        value={widget.buttonTextColor}
+                        onChange={set("buttonTextColor")}
+                        disabled={widget.buttonAutoMatchTheme}
+                      />
 
                       <RangeSlider
                         label={`Button size — ${widget.buttonSize}%`}
@@ -750,7 +795,13 @@ export default function Settings() {
                         output
                       />
 
-                      <Select label="Shape" options={BUTTON_SHAPE_OPTIONS} value={widget.buttonShape} onChange={set("buttonShape")} />
+                      <Select
+                        label="Shape"
+                        options={BUTTON_SHAPE_OPTIONS}
+                        value={widget.buttonShape}
+                        onChange={set("buttonShape")}
+                        disabled={widget.buttonAutoMatchTheme}
+                      />
                       <Select
                         label="Animation"
                         options={BUTTON_ANIMATION_OPTIONS}
