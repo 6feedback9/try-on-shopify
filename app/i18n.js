@@ -45,9 +45,9 @@ const en = {
   "billing.upToQuota": "Up to {quota} try-ons / month",
   "billing.active": "Active",
   "billing.choosePlan": "Choose plan",
-  "billing.manualStepTitle": "One manual step after subscribing",
+  "billing.manualStepTitle": "Syncing with Lumi Frame's own quota",
   "billing.manualStepBody":
-    "Shopify billing controls what the merchant pays here — it doesn't touch Lumi Frame's own quota. Lumi Frame has no self-serve plan API; after a plan change, assign the matching plan to this merchant's Lumi Frame account yourself, in Lumi Frame's own admin console.",
+    "Shopify billing controls what the merchant pays here — it's separate from Lumi Frame's own try-on quota. When a store subscribes, this app automatically assigns the matching Lumi Frame plan (once LUMIFRAME_ADMIN_EMAIL/PASSWORD are set on Render) — nothing to do by hand for that. A cancellation still needs one manual step: lower that store's plan yourself in Lumi Frame's own admin console.",
   "billing.needsReloadTitle": "One-time reset needed",
   "billing.needsReloadBody":
     "Found a stale session for this store and cleared it. Please fully reload this page (Cmd/Ctrl+R, not just clicking a link) so Shopify re-authenticates the app from scratch, then try again.",
@@ -217,9 +217,9 @@ const uk = {
   "billing.upToQuota": "До {quota} примірок на місяць",
   "billing.active": "Активний",
   "billing.choosePlan": "Обрати тариф",
-  "billing.manualStepTitle": "Один ручний крок після оформлення підписки",
+  "billing.manualStepTitle": "Синхронізація з квотою Lumi Frame",
   "billing.manualStepBody":
-    "Оплата Shopify визначає, скільки платить продавець тут — на власну квоту Lumi Frame це не впливає. У Lumi Frame немає окремого API для тарифів; після зміни тарифу призначте відповідний тариф цьому продавцю вручну, у власній адмінці Lumi Frame.",
+    "Оплата Shopify визначає, скільки платить продавець тут — це окремо від власної квоти примірок Lumi Frame. Коли магазин оформлює підписку, цей додаток автоматично призначає відповідний тариф у Lumi Frame (щойно на Render задано LUMIFRAME_ADMIN_EMAIL/PASSWORD) — вручну нічого робити не потрібно. При скасуванні підписки залишається один ручний крок: знизьте тариф цього магазину самостійно, у власній адмінці Lumi Frame.",
   "billing.needsReloadTitle": "Потрібне одноразове скидання",
   "billing.needsReloadBody":
     "Знайдено застарілу сесію для цього магазину — її очищено. Будь ласка, повністю перезавантажте цю сторінку (Cmd/Ctrl+R, а не просто клік по посиланню), щоб Shopify заново авторизував додаток, і спробуйте ще раз.",
@@ -389,9 +389,9 @@ const pl = {
   "billing.upToQuota": "Do {quota} przymierzeń miesięcznie",
   "billing.active": "Aktywny",
   "billing.choosePlan": "Wybierz plan",
-  "billing.manualStepTitle": "Jeden ręczny krok po zasubskrybowaniu",
+  "billing.manualStepTitle": "Synchronizacja z limitem Lumi Frame",
   "billing.manualStepBody":
-    "Rozliczenia Shopify decydują o tym, ile płaci tutaj sprzedawca — nie dotyczy to własnego limitu Lumi Frame. Lumi Frame nie ma samoobsługowego API planów; po zmianie planu przypisz odpowiedni plan temu sprzedawcy ręcznie, we własnym panelu Lumi Frame.",
+    "Rozliczenia Shopify decydują o tym, ile płaci tutaj sprzedawca — to oddzielne od własnego limitu przymierzeń Lumi Frame. Gdy sklep wykupi subskrypcję, ta aplikacja automatycznie przypisuje odpowiedni plan w Lumi Frame (gdy tylko na Render ustawione są LUMIFRAME_ADMIN_EMAIL/PASSWORD) — nic nie trzeba robić ręcznie. Przy anulowaniu subskrypcji pozostaje jeden ręczny krok: obniż plan tego sklepu samodzielnie, we własnym panelu Lumi Frame.",
   "billing.needsReloadTitle": "Wymagany jednorazowy reset",
   "billing.needsReloadBody":
     "Znaleziono nieaktualną sesję dla tego sklepu i ją wyczyszczono. Odśwież całkowicie tę stronę (Cmd/Ctrl+R, nie samo kliknięcie linku), aby Shopify ponownie uwierzytelnił aplikację, a następnie spróbuj ponownie.",
@@ -561,9 +561,9 @@ const cs = {
   "billing.upToQuota": "Až {quota} zkoušení měsíčně",
   "billing.active": "Aktivní",
   "billing.choosePlan": "Vybrat plán",
-  "billing.manualStepTitle": "Jeden ruční krok po objednání",
+  "billing.manualStepTitle": "Synchronizace s kvótou Lumi Frame",
   "billing.manualStepBody":
-    "Fakturace Shopify řídí, kolik zde obchodník platí — nedotýká se vlastní kvóty Lumi Frame. Lumi Frame nemá samoobslužné API plánů; po změně plánu přiřaďte odpovídající plán tomuto obchodníkovi ručně, ve vlastní administraci Lumi Frame.",
+    "Fakturace Shopify řídí, kolik zde obchodník platí — to je odděleno od vlastní kvóty zkoušení Lumi Frame. Když si obchod objedná plán, tato aplikace automaticky přiřadí odpovídající plán v Lumi Frame (jakmile jsou na Render nastaveny LUMIFRAME_ADMIN_EMAIL/PASSWORD) — ručně není třeba nic dělat. Při zrušení předplatného zůstává jeden ruční krok: snižte plán tohoto obchodu sami, ve vlastní administraci Lumi Frame.",
   "billing.needsReloadTitle": "Je potřeba jednorázový reset",
   "billing.needsReloadBody":
     "Byla nalezena zastaralá relace pro tento obchod a byla vymazána. Prosím, znovu úplně načtěte tuto stránku (Cmd/Ctrl+R, ne jen kliknutí na odkaz), aby Shopify aplikaci znovu autorizoval, a zkuste to znovu.",
@@ -733,9 +733,9 @@ const de = {
   "billing.upToQuota": "Bis zu {quota} Anproben pro Monat",
   "billing.active": "Aktiv",
   "billing.choosePlan": "Plan wählen",
-  "billing.manualStepTitle": "Ein manueller Schritt nach dem Abschluss",
+  "billing.manualStepTitle": "Abgleich mit dem Kontingent von Lumi Frame",
   "billing.manualStepBody":
-    "Shopify-Abrechnung steuert, was der Händler hier zahlt — betrifft nicht das eigene Kontingent von Lumi Frame. Lumi Frame hat keine Self-Service-Plan-API; weisen Sie nach einer Planänderung diesem Händler den passenden Plan manuell in der eigenen Lumi-Frame-Admin-Oberfläche zu.",
+    "Die Shopify-Abrechnung steuert, was der Händler hier zahlt — das ist getrennt vom eigenen Anprobe-Kontingent von Lumi Frame. Wenn ein Shop einen Plan abonniert, weist diese App automatisch den passenden Lumi-Frame-Plan zu (sobald LUMIFRAME_ADMIN_EMAIL/PASSWORD auf Render gesetzt sind) — dafür ist nichts manuell nötig. Bei einer Kündigung bleibt ein manueller Schritt: senken Sie den Plan dieses Shops selbst, in der eigenen Lumi-Frame-Admin-Oberfläche.",
   "billing.needsReloadTitle": "Einmaliger Reset erforderlich",
   "billing.needsReloadBody":
     "Eine veraltete Sitzung für diesen Shop wurde gefunden und gelöscht. Bitte laden Sie diese Seite vollständig neu (Cmd/Strg+R, nicht nur ein Link-Klick), damit Shopify die App neu authentifiziert, und versuchen Sie es erneut.",

@@ -1,5 +1,7 @@
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import { PLAN_DETAILS } from "../billing";
+import { syncLumiFramePlanForShop } from "../lumiframe.server";
 
 // Fires whenever a subscription's status changes (ACTIVE, CANCELLED,
 // DECLINED, EXPIRED, FROZEN, ...) — including cancellations a merchant
@@ -13,7 +15,7 @@ export const action = async ({ request }) => {
 
   const isActive = subscription.status === "ACTIVE";
 
-  await prisma.shopSettings
+  const settings = await prisma.shopSettings
     .update({
       where: { shop },
       data: {
@@ -23,7 +25,21 @@ export const action = async ({ request }) => {
         ...(isActive ? {} : { enabled: false }),
       },
     })
-    .catch(() => {});
+    .catch(() => null);
+
+  // Automatically assign the matching Lumi Frame plan too — see
+  // syncLumiFramePlanForShop's own comment for exactly what this does and
+  // doesn't cover (upgrades only; a no-op until LUMIFRAME_ADMIN_EMAIL/
+  // PASSWORD are configured on Render). A cancellation still needs the
+  // manual step in Lumi Frame's own console.
+  if (isActive && settings && PLAN_DETAILS[subscription.name]) {
+    const sync = await syncLumiFramePlanForShop(settings, subscription.name, PLAN_DETAILS[subscription.name].quota);
+    if (sync.ok) {
+      console.log(`[lumiframe sync] ${shop} → Lumi Frame plan ${sync.lumiframePlan}`);
+    } else {
+      console.warn(`[lumiframe sync] ${shop} did not sync automatically: ${sync.reason}`);
+    }
+  }
 
   return new Response();
 };

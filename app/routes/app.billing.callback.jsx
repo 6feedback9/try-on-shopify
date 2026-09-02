@@ -8,10 +8,17 @@ import { ALL_PLANS } from "../billing";
 export const loader = async ({ request }) => {
   const { session, billing } = await authenticate.admin(request);
 
-  const billingCheck = await billing.check({
-    plans: ALL_PLANS,
-    isTest: process.env.NODE_ENV !== "production",
-  });
+  // Same platform 403 this app's Billing page itself guards against (see
+  // its own note) — unlikely right after a successful checkout, but not
+  // impossible, and this route redirecting into an uncaught crash would be
+  // a worse landing spot than the billing page's own error banner.
+  let billingCheck;
+  try {
+    billingCheck = await billing.check({ plans: ALL_PLANS, isTest: process.env.NODE_ENV !== "production" });
+  } catch (err) {
+    console.error("[billing callback] billing.check() failed:", err);
+    return redirect("/app/billing");
+  }
 
   const active = billingCheck.appSubscriptions?.[0]?.name || null;
 
