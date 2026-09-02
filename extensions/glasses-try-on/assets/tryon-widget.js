@@ -134,6 +134,47 @@
     return null;
   }
 
+  // Fallback card detection for the mini-card button (cardButtonEnabled).
+  // @lumiframe/sdk's own detector only finds a card when the thumbnail
+  // <img> is nested INSIDE the product link — true on the two themes it
+  // was verified against, but plenty of real themes (confirmed on a real
+  // store: Shopify's own Dawn-derived markup) put the image as a sibling
+  // of the link instead, inside a shared "card" wrapper. Rather than
+  // giving up on those, mark each such card with the SDK's own documented
+  // override attribute (data-lumiframe-card — packages/sdk/README.md's
+  // "Try on buttons on a catalog page" section) BEFORE TryOn.init() runs,
+  // so its detector picks them up as if the theme had wired them by hand.
+  const CART_CONTAINER_SELECTOR = '[id*="cart" i], [class*="cart" i], [data-cart], cart-drawer, cart-notification, cart-items';
+
+  function markCardsForFallbackDetection() {
+    const links = document.querySelectorAll('a[href*="/products/"], a[href*="/product/"]');
+    const seenHrefs = new Set();
+    for (const link of links) {
+      if (link.closest(CART_CONTAINER_SELECTOR)) continue;
+      if (link.querySelector("img")) continue; // the SDK's own detector already handles this one
+      if (link.pathname === window.location.pathname) continue; // this page's own product — already has the main button
+      if (seenHrefs.has(link.href)) continue;
+
+      // Climb a few levels from the link looking for a shared ancestor
+      // that also contains the thumbnail — the "card" wrapper.
+      let container = link.parentElement;
+      let img = null;
+      for (let i = 0; i < 6 && container; i++) {
+        img = container.querySelector("img");
+        if (img) break;
+        container = container.parentElement;
+      }
+      if (!img || img.hasAttribute("data-lumiframe-card") || img.closest(CART_CONTAINER_SELECTOR)) continue;
+
+      seenHrefs.add(link.href);
+      img.setAttribute("data-lumiframe-card", "");
+      img.setAttribute("data-lumiframe-url", link.href);
+      img.setAttribute("data-lumiframe-id", link.href);
+      const title = link.textContent.trim() || img.alt || "";
+      if (title) img.setAttribute("data-lumiframe-title", title);
+    }
+  }
+
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const s = document.createElement("script");
@@ -187,6 +228,14 @@
     // an actual product page; overrides the manual button colors/shape
     // below when it finds a real button to copy.
     const themeMatch = widgetConfig.buttonAutoMatchTheme && root ? detectThemeButtonStyle() : null;
+
+    // Mini-card button (Settings → Mini-card button tab) — pre-mark cards
+    // the SDK's own detector would otherwise miss on this theme (see
+    // markCardsForFallbackDetection above). Must run before init() below,
+    // since that's what schedules the SDK's own detection pass.
+    if (widgetConfig.cardButtonEnabled) {
+      markCardsForFallbackDetection();
+    }
 
     // Button/modal/card appearance, as saved on this app's Settings page
     // (app/routes/app.settings.jsx) and handed back by /apps/tryon/config.
