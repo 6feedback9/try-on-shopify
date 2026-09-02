@@ -203,6 +203,30 @@
     }
   }
 
+  // Many themes make an entire card clickable via an invisible overlay
+  // link layered on top of the thumbnail (confirmed on a real store: the
+  // card's title link, elsewhere in the DOM, painted over the image via
+  // CSS) — same-priority elements paint in DOM order, so that overlay
+  // ends up above @lumiframe/sdk's card button (which only sets a modest
+  // z-index of 2) and swallows the click before it ever reaches the
+  // button; the badge stays visible, just not clickable. This can't be
+  // fixed inside the SDK's own CSS (not this app's code to change), so it
+  // pushes the badge/drawer/scrim it renders further to the front
+  // directly. Cards inject asynchronously (the SDK's own timing, not
+  // ours), so this watches for them arriving rather than guessing a delay.
+  function keepCardButtonsOnTop() {
+    const CARD_BUTTON_SELECTOR = ".lumiframe-card-badge, .lumiframe-card-drawer, .lumiframe-card-scrim";
+    const boost = () => {
+      document.querySelectorAll(CARD_BUTTON_SELECTOR).forEach((el) => {
+        el.style.zIndex = "2147483647";
+      });
+    };
+    boost();
+    const observer = new MutationObserver(boost);
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => observer.disconnect(), 3000); // one-shot injection — nothing new arrives after this
+  }
+
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const s = document.createElement("script");
@@ -263,6 +287,7 @@
     // since that's what schedules the SDK's own detection pass.
     if (widgetConfig.cardButtonEnabled) {
       markCardsForFallbackDetection(widgetConfig);
+      keepCardButtonsOnTop();
     }
 
     // Button/modal/card appearance, as saved on this app's Settings page
