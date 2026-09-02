@@ -1,0 +1,26 @@
+{% comment %}
+  AI Glasses Try-On — site-wide embed.
+
+  The product-page block (tryon-button.liquid) only runs where a merchant
+  manually placed it — the product template. That's fine for the single
+  "Try on" button on a product page, but the mini-card button (this app's
+  Settings → "Mini-card button" tab) needs to run on collection/search
+  pages too, where that block was never added. This embed is what makes
+  that possible: once enabled (Theme editor → App embeds → "AI Glasses
+  Try-On"), Shopify loads tryon-widget.js on every storefront page, so
+  @lumiframe/sdk's own card detector (detectCards()) can find product
+  cards on any listing page, not just wherever the product block sits.
+
+  tryon-widget.js guards against running twice (window.__lumiTryOnBooted)
+  so it's safe to have both this embed AND the product-page block active
+  on the same product page at once.
+{% endcomment %}
+<div data-agto-embed style="display:none" {{ block.shopify_attributes }}></div>
+
+{% schema %}
+{
+  "name": "AI Glasses Try-On",
+  "target": "body",
+  "javascript": "tryon-widget.js"
+}
+{% endschema %}

@@ -7,11 +7,15 @@
   in this app, Lumi Frame's SDK builds and places the button itself.
 
   Button label/color are NOT configured here — they're set once, for the
-  whole store, on this app's own Settings page (which pushes them into
-  Lumi Frame's Store.widgetConfig, read by the SDK itself). A per-block
-  "Accent color" setting used to live here but did nothing — the SDK has
-  no init()-time color option, only a label one — so it was removed to
-  avoid the confusing "I set it here but nothing changed" trap.
+  whole store, on this app's own Settings page. A per-block "Accent color"
+  setting used to live here but did nothing, so it was removed to avoid
+  the confusing "I set it here but nothing changed" trap.
+
+  This block alone only covers the button on THIS product page. The
+  "Mini-card button" setting (Settings → Mini-card button tab) also needs
+  tryon-embed.liquid enabled once under Theme editor → App embeds — this
+  block never runs on a collection/search page, so it has no way to add a
+  button to cards there on its own.
 {% endcomment %}
 
 {% liquid
