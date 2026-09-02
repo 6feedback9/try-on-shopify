@@ -173,6 +173,15 @@
     return true;
   }
 
+  // img -> { link, product } for every card this file (not the SDK's own
+  // detector) marked — keepCardButtonsClickable below uses this to know which
+  // overlay link to intercept clicks on for a given injected badge.
+  const cardDataByImage = new WeakMap();
+
+  function resolveImageSrc(img) {
+    return img.currentSrc || img.src || img.getAttribute("data-src") || "";
+  }
+
   function markCardsForFallbackDetection(widgetConfig) {
     const links = document.querySelectorAll('a[href*="/products/"], a[href*="/product/"]');
     const seenHrefs = new Set();
@@ -200,29 +209,56 @@
       img.setAttribute("data-lumiframe-id", link.href);
       const title = link.textContent.trim() || img.alt || "";
       if (title) img.setAttribute("data-lumiframe-title", title);
+
+      cardDataByImage.set(img, {
+        link,
+        product: { productId: link.href, productUrl: link.href, productImageUrl: resolveImageSrc(img), productTitle: title || undefined },
+      });
     }
   }
 
   // Many themes make an entire card clickable via an invisible overlay
   // link layered on top of the thumbnail (confirmed on a real store: the
   // card's title link, elsewhere in the DOM, painted over the image via
-  // CSS) — same-priority elements paint in DOM order, so that overlay
-  // ends up above @lumiframe/sdk's card button (which only sets a modest
-  // z-index of 2) and swallows the click before it ever reaches the
-  // button; the badge stays visible, just not clickable. This can't be
-  // fixed inside the SDK's own CSS (not this app's code to change), so it
-  // pushes the badge/drawer/scrim it renders further to the front
-  // directly. Cards inject asynchronously (the SDK's own timing, not
-  // ours), so this watches for them arriving rather than guessing a delay.
-  function keepCardButtonsOnTop() {
+  // CSS). Bumping z-index on the badge alone doesn't fix this when the
+  // overlay's own ancestor establishes a separate, higher stacking context
+  // — confirmed via document.elementFromPoint() at the badge's exact
+  // position still resolving to the overlay link even at max z-index. The
+  // reliable fix is to stop fighting stacking order and instead intercept
+  // the overlay's own click, in the capture phase (before its default
+  // navigation runs), and check whether it geometrically landed on the
+  // badge — if so, open the try-on window instead of following the link.
+  // Cards (and their badges) inject asynchronously, on the SDK's own
+  // timing, so this watches for them arriving rather than guessing a delay.
+  function keepCardButtonsClickable() {
     const CARD_BUTTON_SELECTOR = ".lumiframe-card-badge, .lumiframe-card-drawer, .lumiframe-card-scrim";
-    const boost = () => {
-      document.querySelectorAll(CARD_BUTTON_SELECTOR).forEach((el) => {
-        el.style.zIndex = "2147483647";
+    const wiredLinks = new WeakSet();
+
+    const process = () => {
+      document.querySelectorAll(CARD_BUTTON_SELECTOR).forEach((badge) => {
+        badge.style.zIndex = "2147483647"; // still helps on themes where this alone is enough
+        const wrap = badge.closest(".lumiframe-card-wrap");
+        const img = wrap && wrap.querySelector("img");
+        const data = img && cardDataByImage.get(img);
+        if (!data || wiredLinks.has(data.link)) return;
+        wiredLinks.add(data.link);
+
+        data.link.addEventListener(
+          "click",
+          (event) => {
+            const r = badge.getBoundingClientRect();
+            if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (window.TryOn) window.TryOn.open(data.product);
+          },
+          true
+        );
       });
     };
-    boost();
-    const observer = new MutationObserver(boost);
+
+    process();
+    const observer = new MutationObserver(process);
     observer.observe(document.body, { childList: true, subtree: true });
     setTimeout(() => observer.disconnect(), 3000); // one-shot injection — nothing new arrives after this
   }
@@ -287,7 +323,7 @@
     // since that's what schedules the SDK's own detection pass.
     if (widgetConfig.cardButtonEnabled) {
       markCardsForFallbackDetection(widgetConfig);
-      keepCardButtonsOnTop();
+      keepCardButtonsClickable();
     }
 
     // Button/modal/card appearance, as saved on this app's Settings page
